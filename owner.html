@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baan 125 — Owner</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1008; --cream: #faf6ef; --warm: #f2ebe0;
+    --clay: #c4804a; --clay-light: #e8a878; --clay-dark: #8b4e20;
+    --stone: #8a7968; --line: #ddd5c8; --white: #ffffff;
+    --red: #c0392b; --green: #27ae60;
+    --green-light: #eafaf1; --red-light: #fdf0ef; --yellow-light: #fef9ec;
+    --shadow: 0 2px 20px rgba(26,16,8,0.08);
+    --shadow-lg: 0 8px 40px rgba(26,16,8,0.14);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--ink); min-height: 100vh; padding-bottom: 80px; }
+
+  header { background: var(--ink); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'DM Serif Display', serif; color: var(--cream); font-size: 20px; }
+  .logo span { color: var(--clay-light); }
+  .header-sub { font-size: 11px; color: var(--stone); text-transform: uppercase; letter-spacing: 2px; }
+
+  /* BOTTOM NAV */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-top: 1.5px solid var(--line); display: flex; z-index: 100; }
+  .nav-btn { flex: 1; padding: 12px 4px 10px; border: none; background: none; font-family: 'DM Sans', sans-serif; font-size: 10px; color: var(--stone); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; transition: color 0.15s; }
+  .nav-btn .icon { font-size: 20px; }
+  .nav-btn.active { color: var(--clay-dark); font-weight: 600; }
+
+  main { padding: 20px 16px; max-width: 1000px; margin: 0 auto; }
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+  @media (min-width: 600px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+  .stat-card { background: var(--white); border-radius: 14px; padding: 14px; box-shadow: var(--shadow); }
+  .stat-label { font-size: 10px; color: var(--stone); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+  .stat-value { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--ink); }
+  .stat-value.money { color: var(--clay-dark); }
+
+  /* GRID */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .card { background: var(--white); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border: 1.5px solid transparent; position: relative; }
+  .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); border-color: var(--clay-light); }
+  .card-img { width: 100%; aspect-ratio: 1; background: var(--warm); display: flex; align-items: center; justify-content: center; font-size: 36px; overflow: hidden; }
+  .card-img img { width: 100%; height: 100%; object-fit: cover; }
+  .card-body { padding: 10px 12px; }
+  .card-name { font-size: 12px; font-weight: 600; margin-bottom: 2px; line-height: 1.3; }
+  .card-size { font-size: 11px; color: var(--stone); margin-bottom: 3px; }
+  .card-price-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; }
+  .card-sell { font-size: 12px; color: var(--clay-dark); font-weight: 600; }
+  .card-cost { font-size: 11px; color: var(--stone); }
+  .card-margin { font-size: 11px; font-weight: 600; color: var(--green); margin-bottom: 4px; }
+  .no-cost { font-size: 11px; color: var(--red); font-weight: 500; margin-bottom: 4px; }
+  .stock-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge-ok { background: var(--green-light); color: var(--green); }
+  .badge-low { background: var(--yellow-light); color: #e67e22; }
+  .badge-out { background: var(--red-light); color: var(--red); }
+  .card-delete { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; background: rgba(255,255,255,0.9); border: none; border-radius: 50%; font-size: 14px; cursor: pointer; display: none; align-items: center; justify-content: center; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+  .card:hover .card-delete { display: flex; }
+
+  /* SEARCH */
+  .search-bar { background: var(--white); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 16px; width: 100%; font-family: 'DM Sans', sans-serif; font-size: 15px; color: var(--ink); outline: none; margin-bottom: 16px; transition: border-color 0.2s; }
+  .search-bar:focus { border-color: var(--clay); }
+  .search-bar::placeholder { color: var(--stone); }
+
+  /* FORM */
+  .form-card { background: var(--white); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+  .form-card h3 { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 18px; }
+  .form-group { margin-bottom: 14px; }
+  label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--stone); margin-bottom: 6px; }
+  input[type="text"], input[type="number"], input[type="date"], input[type="url"] { width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 15px; color: var(--ink); background: var(--white); outline: none; transition: border-color 0.2s; }
+  input:focus { border-color: var(--clay); }
+
+  /* IMAGE UPLOAD */
+  .img-upload-wrap { display: flex; gap: 10px; margin-bottom: 14px; }
+  .img-preview { width: 100px; height: 100px; border-radius: 12px; background: var(--warm); display: flex; align-items: center; justify-content: center; font-size: 32px; flex-shrink: 0; overflow: hidden; border: 1.5px solid var(--line); }
+  .img-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .img-btns { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .btn-cam, .btn-gallery { padding: 11px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--white); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--ink); text-align: center; transition: all 0.15s; }
+  .btn-cam:hover, .btn-gallery:hover { border-color: var(--clay); background: #fdf6f0; }
+  .upload-progress { font-size: 12px; color: var(--stone); margin-top: 4px; display: none; }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .btn-primary { width: 100%; padding: 15px; background: var(--clay); color: white; border: none; border-radius: 12px; font-family: 'DM Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: background 0.2s; }
+  .btn-primary:hover { background: var(--clay-dark); }
+  .btn-primary:disabled { background: var(--line); color: var(--stone); cursor: not-allowed; }
+
+  .margin-preview { font-size: 13px; color: var(--stone); margin-bottom: 10px; min-height: 18px; }
+
+  /* SALES */
+  .sales-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .filter-btn { padding: 8px 14px; border: 1.5px solid var(--line); border-radius: 100px; background: var(--white); font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--stone); transition: all 0.15s; }
+  .filter-btn.active { background: var(--ink); color: white; border-color: var(--ink); }
+  .btn-export { padding: 10px 18px; background: var(--ink); color: white; border: none; border-radius: 8px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.15s; }
+  .btn-export:hover { opacity: 0.85; }
+  .table-wrap { background: var(--white); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 480px; }
+  thead { background: var(--ink); }
+  thead th { padding: 12px 14px; text-align: left; font-size: 11px; font-weight: 600; color: var(--cream); text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--line); }
+  tbody tr:hover { background: var(--warm); }
+  tbody tr:last-child { border-bottom: none; }
+  td { padding: 11px 14px; font-size: 13px; }
+  .pay-tag { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+  .pay-cash { background: var(--green-light); color: var(--green); }
+  .pay-credit { background: #edf2ff; color: #3b5bdb; }
+
+  /* SETTINGS */
+  .settings-card { background: var(--white); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); margin-bottom: 14px; }
+  .settings-card h3 { font-family: 'DM Serif Display', serif; font-size: 18px; margin-bottom: 10px; }
+  .settings-card p { font-size: 13px; color: var(--stone); margin-bottom: 14px; line-height: 1.6; }
+  .settings-card input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--ink); outline: none; margin-bottom: 12px; }
+  .settings-card input:focus { border-color: var(--clay); }
+  .btn-save { padding: 12px 24px; background: var(--clay); color: white; border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
+
+  /* EMPTY / LOADING */
+  .empty { text-align: center; padding: 50px 20px; color: var(--stone); }
+  .empty-icon { font-size: 44px; margin-bottom: 10px; }
+  .empty h3 { font-family: 'DM Serif Display', serif; font-size: 18px; margin-bottom: 6px; color: var(--ink); }
+  .loading { text-align: center; padding: 50px 20px; color: var(--stone); font-size: 14px; }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--line); border-top-color: var(--clay); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* OVERLAY / MODAL */
+  .overlay { position: fixed; inset: 0; background: rgba(26,16,8,0.5); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+  .overlay.active { display: flex; }
+  @media (min-width: 600px) { .overlay { align-items: center; padding: 20px; } }
+  .modal { background: var(--white); border-radius: 24px 24px 0 0; width: 100%; max-width: 480px; padding: 28px 24px 36px; animation: slideUp 0.3s ease; max-height: 90vh; overflow-y: auto; }
+  @media (min-width: 600px) { .modal { border-radius: 20px; } }
+  @keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .modal-header h3 { font-family: 'DM Serif Display', serif; font-size: 20px; }
+  .modal-close { width: 32px; height: 32px; background: var(--warm); border: none; border-radius: 50%; font-size: 18px; cursor: pointer; color: var(--ink); display: flex; align-items: center; justify-content: center; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--ink); color: white; padding: 12px 24px; border-radius: 100px; font-size: 14px; font-weight: 500; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .section-title { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 16px; }
+  .flex-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">Baan 125 <span>Hangout</span></div>
+    <div class="header-sub">Owner Dashboard</div>
+  </div>
+</header>
+
+<main>
+  <!-- DASHBOARD -->
+  <div class="section active" id="tab-dashboard">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Products</div><div class="stat-value" id="stat-products">—</div></div>
+      <div class="stat-card"><div class="stat-label">Cost Value</div><div class="stat-value money" id="stat-cost">—</div></div>
+      <div class="stat-card"><div class="stat-label">Sell Value</div><div class="stat-value money" id="stat-sell">—</div></div>
+      <div class="stat-card"><div class="stat-label">Revenue</div><div class="stat-value money" id="stat-revenue">—</div></div>
+    </div>
+    <div id="low-stock-section"></div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div class="section" id="tab-products">
+    <input class="search-bar" type="text" placeholder="Search products..." id="owner-search" oninput="filterOwnerProducts()">
+    <div id="owner-product-container">
+      <div class="loading"><div class="spinner"></div>Loading...</div>
+    </div>
+  </div>
+
+  <!-- ADD PRODUCT -->
+  <div class="section" id="tab-add">
+    <div class="form-card">
+      <h3>Add New Product</h3>
+      <label>Product Photo</label>
+      <div class="img-upload-wrap">
+        <div class="img-preview" id="owner-preview">🏺</div>
+        <div class="img-btns">
+          <button class="btn-cam" onclick="document.getElementById('owner-cam').click()">📷 Take Photo</button>
+          <button class="btn-gallery" onclick="document.getElementById('owner-gallery').click()">🖼 Choose from Gallery</button>
+          <div class="upload-progress" id="owner-upload-progress">Uploading...</div>
+        </div>
+      </div>
+      <input type="file" id="owner-cam" accept="image/*" capture="environment" style="display:none" onchange="handleOwnerImage(event)">
+      <input type="file" id="owner-gallery" accept="image/*" style="display:none" onchange="handleOwnerImage(event)">
+
+      <div class="form-group"><label>Product Name *</label><input type="text" id="new-name" placeholder="e.g. Ceramic Mug — Lotus"></div>
+      <div class="form-group"><label>Size</label><input type="text" id="new-size" placeholder="e.g. 300ml"></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Cost Price (฿) *</label><input type="number" id="new-cost" placeholder="150" oninput="updateMargin()"></div>
+        <div class="form-group"><label>Sell Price (฿) *</label><input type="number" id="new-sell" placeholder="450" oninput="updateMargin()"></div>
+      </div>
+      <div class="form-group"><label>Quantity *</label><input type="number" id="new-qty" placeholder="10" min="0"></div>
+      <div class="margin-preview" id="margin-preview"></div>
+      <button class="btn-primary" id="owner-add-btn" onclick="ownerAddProduct()">Add Product</button>
+    </div>
+  </div>
+
+  <!-- SALES -->
+  <div class="section" id="tab-sales">
+    <div class="flex-row">
+      <div class="sales-filters">
+        <button class="filter-btn active" onclick="filterSales('all',this)">All</button>
+        <button class="filter-btn" onclick="filterSales('cash',this)">Cash</button>
+        <button class="filter-btn" onclick="filterSales('credit',this)">Credit</button>
+      </div>
+      <button class="btn-export" onclick="exportSales()">⬇ Export Excel</button>
+    </div>
+    <div id="sales-container"><div class="loading"><div class="spinner"></div>Loading sales...</div></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="section" id="tab-settings">
+    <div class="settings-card">
+      <h3>Google Sheets Connection</h3>
+      <p>Paste the Web App URL from Google Apps Script. Both owner.html and staff.html must use the same URL.</p>
+      <input type="text" id="settings-url" placeholder="https://script.google.com/macros/s/...">
+      <button class="btn-save" onclick="saveSettings()">Save & Reconnect</button>
+    </div>
+    <div class="settings-card">
+      <h3>Setup Guide</h3>
+      <p style="font-family:monospace;font-size:12px;background:var(--warm);padding:14px;border-radius:10px;line-height:1.9;color:var(--ink)">1. Go to <strong>sheets.google.com</strong> → create new sheet
+2. Click <strong>Extensions → Apps Script</strong>
+3. Delete existing code, paste gas_code.js
+4. Click <strong>Deploy → New deployment</strong>
+5. Type: <strong>Web App</strong>
+   Execute as: <strong>Me</strong>
+   Who has access: <strong>Anyone</strong>
+6. Authorize → copy the URL
+7. Paste URL above → Save</p>
+    </div>
+  </div>
+</main>
+
+<!-- BOTTOM NAV -->
+<div class="bottom-nav">
+  <button class="nav-btn active" id="nav-dashboard" onclick="showTab('dashboard')"><span class="icon">📊</span>Dashboard</button>
+  <button class="nav-btn" id="nav-products" onclick="showTab('products')"><span class="icon">🏺</span>Products</button>
+  <button class="nav-btn" id="nav-add" onclick="showTab('add')"><span class="icon">➕</span>Add</button>
+  <button class="nav-btn" id="nav-sales" onclick="showTab('sales')"><span class="icon">💰</span>Sales</button>
+  <button class="nav-btn" id="nav-settings" onclick="showTab('settings')"><span class="icon">⚙️</span>Settings</button>
+</div>
+
+<!-- Edit Modal -->
+<div class="overlay" id="edit-overlay" onclick="closeEdit(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Edit Product</h3>
+      <button class="modal-close" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="form-group"><label>Product Name</label><input type="text" id="edit-name"></div>
+    <div class="form-group"><label>Size</label><input type="text" id="edit-size"></div>
+    <div class="form-grid">
+      <div class="form-group"><label>Cost Price (฿)</label><input type="number" id="edit-cost"></div>
+      <div class="form-group"><label>Sell Price (฿)</label><input type="number" id="edit-sell"></div>
+    </div>
+    <div class="form-group"><label>Quantity</label><input type="number" id="edit-qty"></div>
+    <div class="form-group"><label>Image URL</label><input type="url" id="edit-img" placeholder="Leave blank to keep current"></div>
+    <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+const API_KEY = 'baan125_api_url';
+let products = [];
+let sales = [];
+let editingProduct = null;
+let ownerImageUrl = '';
+
+function getApiUrl() { return localStorage.getItem(API_KEY); }
+
+async function apiCall(action, data = {}) {
+  const url = getApiUrl();
+  if (!url) throw new Error('No API URL');
+  const res = await fetch(url, { method: 'POST', body: JSON.stringify({ action, ...data }) });
+  return res.json();
+}
+
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'products') loadOwnerProducts();
+  if (name === 'sales') loadSales();
+  if (name === 'settings') document.getElementById('settings-url').value = getApiUrl() || '';
+}
+
+async function loadDashboard() {
+  try {
+    const [pd, sd] = await Promise.all([apiCall('getProducts'), apiCall('getSales')]);
+    products = pd.products || [];
+    sales = sd.sales || [];
+    const totalCost = products.reduce((s,p) => s + Number(p.costPrice) * Number(p.quantity), 0);
+    const totalSell = products.reduce((s,p) => s + Number(p.sellPrice) * Number(p.quantity), 0);
+    const totalRevenue = sales.reduce((s,sl) => s + Number(sl.total), 0);
+    document.getElementById('stat-products').textContent = products.length;
+    document.getElementById('stat-cost').textContent = '฿' + totalCost.toLocaleString();
+    document.getElementById('stat-sell').textContent = '฿' + totalSell.toLocaleString();
+    document.getElementById('stat-revenue').textContent = '฿' + totalRevenue.toLocaleString();
+
+    const noCost = products.filter(p => Number(p.costPrice) === 0);
+    let html = '';
+    if (noCost.length) html += `<div style="background:#fff8e1;border-radius:14px;padding:14px;margin-bottom:10px"><div style="font-weight:600;color:#e67e22;margin-bottom:6px">💡 Need Cost Price (${noCost.length})</div>${noCost.map(p=>`<div style="font-size:13px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,0.05)">${p.name}</div>`).join('')}</div>`;
+    if (!html) html = `<div style="background:var(--green-light);border-radius:14px;padding:14px;color:var(--green);font-weight:600">✅ All products are well stocked</div>`;
+    document.getElementById('low-stock-section').innerHTML = html;
+  } catch(e) { showToast('Error loading dashboard'); }
+}
+
+async function loadOwnerProducts() {
+  const container = document.getElementById('owner-product-container');
+  container.innerHTML = `<div class="loading"><div class="spinner"></div>Loading...</div>`;
+  try {
+    const data = await apiCall('getProducts');
+    products = data.products || [];
+    renderOwnerProducts(products);
+  } catch(e) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><h3>Connection Error</h3></div>`;
+  }
+}
+
+function renderOwnerProducts(list) {
+  const container = document.getElementById('owner-product-container');
+  if (!list.length) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">🏺</div><h3>No Products Yet</h3></div>`;
+    return;
+  }
+  container.innerHTML = `<div class="grid">${list.map(p => {
+    const qty = Number(p.quantity);
+    const hasCost = Number(p.costPrice) > 0;
+    const margin = hasCost && p.sellPrice > 0 ? ((p.sellPrice - p.costPrice) / p.sellPrice * 100).toFixed(0) : null;
+    let badgeClass = 'badge-ok', badgeText = `${qty} left`;
+    if (qty === 0) { badgeClass = 'badge-out'; badgeText = 'Out of stock'; }
+    const imgHtml = p.imageUrl ? `<img src="${p.imageUrl}" alt="${p.name}" onerror="this.parentElement.textContent='🏺'">` : '🏺';
+    return `<div class="card" onclick="openEdit('${p.id}')">
+      <div class="card-img">${imgHtml}</div>
+      <button class="card-delete" onclick="event.stopPropagation();deleteProduct('${p.id}','${p.name}')">🗑</button>
+      <div class="card-body">
+        <div class="card-name">${p.name}</div>
+        ${p.size ? `<div class="card-size">${p.size}</div>` : ''}
+        <div class="card-price-row">
+          <span class="card-sell">฿${Number(p.sellPrice).toLocaleString()}</span>
+          ${hasCost ? `<span class="card-cost">฿${Number(p.costPrice).toLocaleString()}</span>` : ''}
+        </div>
+        ${margin !== null ? `<div class="card-margin">Margin ${margin}%</div>` : `<div class="no-cost">⚠️ Add cost price</div>`}
+        ${p.addedBy ? `<div style="font-size:10px;color:var(--stone);margin-bottom:3px">Added by ${p.addedBy}</div>` : ''}
+        <span class="stock-badge ${badgeClass}">${badgeText}</span>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function filterOwnerProducts() {
+  const q = document.getElementById('owner-search').value.toLowerCase();
+  renderOwnerProducts(products.filter(p => p.name.toLowerCase().includes(q)));
+}
+
+// Image handling
+function handleOwnerImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const base64Full = ev.target.result;
+    document.getElementById('owner-preview').innerHTML = `<img src="${base64Full}">`;
+    const progress = document.getElementById('owner-upload-progress');
+    progress.style.display = 'block';
+    progress.textContent = 'Uploading image...';
+    progress.style.color = 'var(--stone)';
+    try {
+      const result = await apiCall('uploadImage', {
+        imageData: base64Full.split(',')[1],
+        mimeType: file.type,
+        fileName: 'product_' + Date.now() + '.' + file.name.split('.').pop()
+      });
+      if (result.imageUrl) {
+        ownerImageUrl = result.imageUrl;
+        progress.textContent = '✅ Image uploaded!';
+        progress.style.color = 'var(--green)';
+      } else {
+        progress.textContent = '⚠️ Upload failed';
+        ownerImageUrl = '';
+      }
+    } catch(err) {
+      progress.textContent = '⚠️ Upload failed';
+      ownerImageUrl = '';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function updateMargin() {
+  const cost = parseFloat(document.getElementById('new-cost').value);
+  const sell = parseFloat(document.getElementById('new-sell').value);
+  const el = document.getElementById('margin-preview');
+  if (cost && sell && sell > 0) {
+    const margin = ((sell - cost) / sell * 100).toFixed(1);
+    el.textContent = `Margin: ${margin}% — Profit: ฿${(sell-cost).toLocaleString()} per unit`;
+    el.style.color = margin >= 30 ? 'var(--green)' : 'var(--clay)';
+  } else { el.textContent = ''; }
+}
+
+async function ownerAddProduct() {
+  const name = document.getElementById('new-name').value.trim();
+  const size = document.getElementById('new-size').value.trim();
+  const cost = document.getElementById('new-cost').value;
+  const sell = document.getElementById('new-sell').value;
+  const qty = document.getElementById('new-qty').value;
+  if (!name || !cost || !sell || !qty) { showToast('Fill in all required fields'); return; }
+  const btn = document.getElementById('owner-add-btn');
+  btn.disabled = true; btn.textContent = 'Adding...';
+  try {
+    await apiCall('addProduct', { name, size, costPrice: Number(cost), sellPrice: Number(sell), quantity: Number(qty), imageUrl: ownerImageUrl });
+    showToast('✅ Product added!');
+    document.getElementById('new-name').value = '';
+    document.getElementById('new-size').value = '';
+    document.getElementById('new-cost').value = '';
+    document.getElementById('new-sell').value = '';
+    document.getElementById('new-qty').value = '';
+    document.getElementById('owner-preview').innerHTML = '🏺';
+    document.getElementById('owner-upload-progress').style.display = 'none';
+    document.getElementById('margin-preview').textContent = '';
+    ownerImageUrl = '';
+  } catch(e) { showToast('Error adding product'); }
+  btn.disabled = false; btn.textContent = 'Add Product';
+}
+
+function openEdit(id) {
+  editingProduct = products.find(p => p.id === id);
+  if (!editingProduct) return;
+  document.getElementById('edit-name').value = editingProduct.name;
+  document.getElementById('edit-size').value = editingProduct.size || '';
+  document.getElementById('edit-cost').value = editingProduct.costPrice;
+  document.getElementById('edit-sell').value = editingProduct.sellPrice;
+  document.getElementById('edit-qty').value = editingProduct.quantity;
+  document.getElementById('edit-img').value = '';
+  document.getElementById('edit-overlay').classList.add('active');
+}
+
+function closeEdit(e) {
+  if (e && e.target !== document.getElementById('edit-overlay')) return;
+  document.getElementById('edit-overlay').classList.remove('active');
+  editingProduct = null;
+}
+
+async function saveEdit() {
+  if (!editingProduct) return;
+  try {
+    const imgVal = document.getElementById('edit-img').value.trim();
+    await apiCall('updateProduct', {
+      id: editingProduct.id,
+      name: document.getElementById('edit-name').value,
+      size: document.getElementById('edit-size').value,
+      costPrice: Number(document.getElementById('edit-cost').value),
+      sellPrice: Number(document.getElementById('edit-sell').value),
+      quantity: Number(document.getElementById('edit-qty').value),
+      imageUrl: imgVal || editingProduct.imageUrl
+    });
+    document.getElementById('edit-overlay').classList.remove('active');
+    showToast('✅ Updated!');
+    loadOwnerProducts();
+  } catch(e) { showToast('Error updating'); }
+}
+
+async function deleteProduct(id, name) {
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  try {
+    await apiCall('deleteProduct', { id });
+    showToast('Deleted');
+    loadOwnerProducts();
+  } catch(e) { showToast('Error deleting'); }
+}
+
+async function loadSales() {
+  const container = document.getElementById('sales-container');
+  container.innerHTML = `<div class="loading"><div class="spinner"></div>Loading...</div>`;
+  try {
+    const data = await apiCall('getSales');
+    sales = data.sales || [];
+    renderSales(sales);
+  } catch(e) { container.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><h3>Error</h3></div>`; }
+}
+
+function filterSales(type, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderSales(type === 'all' ? sales : sales.filter(s => s.paymentMethod === type));
+}
+
+function renderSales(list) {
+  const container = document.getElementById('sales-container');
+  if (!list.length) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">💰</div><h3>No Sales Yet</h3></div>`;
+    return;
+  }
+  const sorted = [...list].sort((a,b) => new Date(b.saleDate) - new Date(a.saleDate));
+  const total = sorted.reduce((s,sl) => s + Number(sl.total), 0);
+  container.innerHTML = `
+    <div style="background:var(--green-light);border-radius:12px;padding:12px 16px;margin-bottom:14px;font-weight:600;color:var(--green)">
+      Total: ฿${total.toLocaleString()} — ${sorted.length} transactions
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Date</th><th>Product</th><th>Qty</th><th>Price</th><th>Total</th><th>Payment</th><th>Sold by</th></tr></thead>
+      <tbody>${sorted.map(s=>`<tr>
+        <td>${s.saleDate}</td><td>${s.productName}</td>
+        <td style="text-align:center">${s.quantity}</td>
+        <td>฿${Number(s.sellPrice).toLocaleString()}</td>
+        <td style="font-weight:600">฿${Number(s.total).toLocaleString()}</td>
+        <td><span class="pay-tag ${s.paymentMethod==='cash'?'pay-cash':'pay-credit'}">${s.paymentMethod}</span></td>
+        <td>${s.soldBy||'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+function exportSales() {
+  if (!sales.length) { showToast('No sales to export'); return; }
+  const rows = sales.map(s => ({ Date: s.saleDate, Product: s.productName, Quantity: s.quantity, 'Sell Price': s.sellPrice, Total: s.total, Payment: s.paymentMethod, 'Sold by': s.soldBy||'' }));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), 'Sales');
+  XLSX.writeFile(wb, 'baan125_sales.xlsx');
+  showToast('✅ Exported!');
+}
+
+function saveSettings() {
+  const url = document.getElementById('settings-url').value.trim();
+  if (!url) { showToast('Enter URL first'); return; }
+  localStorage.setItem(API_KEY, url);
+  showToast('✅ Saved!');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
