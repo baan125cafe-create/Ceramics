@@ -203,25 +203,44 @@ main { padding: 16px; max-width: 700px; margin: 0 auto; }
   </div>
 </div>
 
+<!-- Setup Overlay -->
+<div class="overlay" id="setup-overlay">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div style="font-size:18px;font-weight:600;margin-bottom:8px;">เชื่อมต่อระบบ</div>
+    <div style="font-size:14px;color:var(--stone);margin-bottom:20px;">วาง Apps Script URL เพื่อเชื่อมต่อข้อมูล</div>
+    <input class="form-input" type="text" id="api-url-input" placeholder="https://script.google.com/macros/s/...">
+    <button class="btn-primary" style="margin-top:12px;" onclick="saveApiUrl()">บันทึกและเชื่อมต่อ</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbxXs2iFer5MxEmuq77e1llj8n_93Ygvi2x5nXJO9dIU4Zy-T053scpMN7NgFg6mJpqO/exec';
+const API_KEY = 'chudpak_api_url';
 let products = [], sales = [];
 let editingId = null, modalImageUrl = '';
 
+function getApiUrl() { return localStorage.getItem(API_KEY); }
+
 async function api(action, data = {}) {
-  if (action === 'getProducts' || action === 'getSales') {
-    return new Promise((resolve) => {
-      const cb = 'cb_' + Date.now();
-      window[cb] = (d) => { resolve(d); delete window[cb]; script.remove(); };
-      const script = document.createElement('script');
-      script.src = API_URL + '?action=' + action + '&callback=' + cb;
-      document.head.appendChild(script);
-    });
+  const url = getApiUrl();
+  if (!url) throw new Error('No API URL');
+  const res = await fetch(url, { method: 'POST', body: JSON.stringify({ action, ...data }) });
+  return res.json();
+}
+
+function checkSetup() {
+  if (!getApiUrl()) {
+    document.getElementById('setup-overlay').classList.add('active');
   }
-  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action, ...data }) });
-  return { success: true };
+}
+
+function saveApiUrl() {
+  const url = document.getElementById('api-url-input').value.trim();
+  if (!url) return;
+  localStorage.setItem(API_KEY, url);
+  document.getElementById('setup-overlay').classList.remove('active');
 }
 
 async function doLogin() {
@@ -236,8 +255,6 @@ async function doLogin() {
     document.getElementById('pw-input').value = '';
   }
 }
-
-function doLogout() {
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('main-app').style.display = 'none';
   document.getElementById('pw-input').value = '';
@@ -439,6 +456,8 @@ function showToast(msg) {
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
 }
+
+checkSetup();
 </script>
 </body>
 </html>
