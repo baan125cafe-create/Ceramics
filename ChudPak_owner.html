@@ -206,17 +206,22 @@ main { padding: 16px; max-width: 700px; margin: 0 auto; }
 <div class="toast" id="toast"></div>
 
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbzvcs422vAWz0TiiEwI0LAqYOHgwYIv_Vw62O_H8bMpwB5eJyhtjF7dIPOPXA7C-ZpL/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxXs2iFer5MxEmuq77e1llj8n_93Ygvi2x5nXJO9dIU4Zy-T053scpMN7NgFg6mJpqO/exec';
 let products = [], sales = [];
 let editingId = null, modalImageUrl = '';
 
 async function api(action, data = {}) {
   if (action === 'getProducts' || action === 'getSales') {
-    const res = await fetch(API_URL + '?action=' + action);
-    return res.json();
+    return new Promise((resolve) => {
+      const cb = 'cb_' + Date.now();
+      window[cb] = (d) => { resolve(d); delete window[cb]; script.remove(); };
+      const script = document.createElement('script');
+      script.src = API_URL + '?action=' + action + '&callback=' + cb;
+      document.head.appendChild(script);
+    });
   }
-  const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, ...data }) });
-  return res.json();
+  await fetch(API_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action, ...data }) });
+  return { success: true };
 }
 
 async function doLogin() {
