@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ชุดปัก — Owner</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1a1a1a; --bg: #f8f7f4; --warm: #f2ebe0;
+  --stone: #888; --line: #e8e6e0; --white: #ffffff;
+  --green: #1d9e75; --green-light: #eaf3de;
+  --red: #c0392b; --red-light: #fdf0ef;
+  --amber: #ba7517; --amber-light: #faeeda;
+  --shadow: 0 2px 16px rgba(0,0,0,0.07);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Sarabun', sans-serif; background: var(--bg); color: var(--ink); min-height: 100vh; padding-bottom: 80px; }
+/* LOGIN */
+#login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+.login-box { background: var(--white); border-radius: 20px; padding: 40px 32px; width: 100%; max-width: 360px; text-align: center; box-shadow: var(--shadow); }
+.login-title { font-size: 24px; font-weight: 600; margin-bottom: 6px; }
+.login-sub { font-size: 14px; color: var(--stone); margin-bottom: 28px; }
+.login-input { width: 100%; padding: 13px 16px; border: 1.5px solid var(--line); border-radius: 12px; font-family: 'Sarabun', sans-serif; font-size: 16px; outline: none; margin-bottom: 12px; }
+.login-input:focus { border-color: var(--ink); }
+.btn-login { width: 100%; padding: 14px; background: var(--ink); color: white; border: none; border-radius: 12px; font-family: 'Sarabun', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; }
+.pw-error { color: var(--red); font-size: 13px; margin-top: 8px; display: none; }
+/* HEADER */
+header { background: var(--ink); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+.logo { color: #fff; font-size: 18px; font-weight: 600; }
+.logo span { color: #aaa; font-size: 12px; font-weight: 400; margin-left: 8px; }
+.btn-logout { background: none; border: 1px solid #444; color: #ccc; border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer; font-family: 'Sarabun', sans-serif; }
+/* NAV */
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--white); border-top: 1.5px solid var(--line); display: flex; z-index: 100; }
+.nav-btn { flex: 1; padding: 10px 4px 8px; border: none; background: none; font-family: 'Sarabun', sans-serif; font-size: 11px; color: var(--stone); cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.nav-btn .icon { font-size: 20px; }
+.nav-btn.active { color: var(--ink); font-weight: 600; }
+main { padding: 16px; max-width: 700px; margin: 0 auto; }
+.section { display: none; }
+.section.active { display: block; }
+.section-title { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
+/* STATS */
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+.stat-card { background: var(--white); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
+.stat-label { font-size: 11px; color: var(--stone); margin-bottom: 4px; }
+.stat-value { font-size: 20px; font-weight: 600; }
+.stat-value.green { color: var(--green); }
+.stat-value.amber { color: var(--amber); }
+/* GRID */
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.card { background: var(--white); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); }
+.card-img { width: 100%; aspect-ratio: 1; background: var(--warm); display: flex; align-items: center; justify-content: center; font-size: 36px; overflow: hidden; }
+.card-img img { width: 100%; height: 100%; object-fit: cover; }
+.card-body { padding: 10px 12px; }
+.card-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.card-price { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.card-cost { font-size: 11px; color: var(--stone); margin-bottom: 4px; }
+.stock-badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; }
+.badge-ok { background: var(--green-light); color: var(--green); }
+.badge-out { background: var(--red-light); color: var(--red); }
+.card-actions { display: flex; gap: 6px; margin-top: 8px; }
+.btn-edit { flex: 1; background: var(--ink); color: white; border: none; border-radius: 8px; padding: 7px; font-size: 12px; font-weight: 500; cursor: pointer; font-family: 'Sarabun', sans-serif; }
+.btn-del { background: var(--red-light); color: var(--red); border: none; border-radius: 8px; padding: 7px 10px; font-size: 12px; cursor: pointer; font-family: 'Sarabun', sans-serif; }
+/* FORM */
+.form-card { background: var(--white); border-radius: 16px; padding: 20px; box-shadow: var(--shadow); }
+.form-group { margin-bottom: 14px; }
+.form-label { display: block; font-size: 12px; font-weight: 600; color: var(--stone); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.form-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 15px; color: var(--ink); outline: none; background: var(--white); }
+.form-input:focus { border-color: var(--ink); }
+.price-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.img-upload-wrap { display: flex; gap: 10px; margin-bottom: 14px; }
+.img-preview { width: 90px; height: 90px; border-radius: 12px; background: var(--warm); display: flex; align-items: center; justify-content: center; font-size: 30px; flex-shrink: 0; overflow: hidden; border: 1.5px solid var(--line); }
+.img-preview img { width: 100%; height: 100%; object-fit: cover; }
+.img-btns { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.btn-img { padding: 11px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--white); font-family: 'Sarabun', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--ink); text-align: center; }
+.upload-status { font-size: 12px; color: var(--stone); margin-top: 4px; display: none; }
+.btn-primary { width: 100%; padding: 14px; background: var(--ink); color: white; border: none; border-radius: 12px; font-family: 'Sarabun', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+.btn-primary:disabled { background: var(--line); color: var(--stone); cursor: not-allowed; }
+.btn-danger { width: 100%; padding: 12px; background: var(--red-light); color: var(--red); border: 1px solid #f7c1c1; border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 14px; cursor: pointer; margin-top: 8px; }
+/* SALES */
+.sale-item { background: var(--white); border-radius: 12px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 10px; box-shadow: var(--shadow); }
+.sale-thumb { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; background: var(--warm); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; overflow: hidden; }
+.sale-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.sale-info { flex: 1; }
+.sale-name { font-size: 14px; font-weight: 600; }
+.sale-meta { font-size: 12px; color: var(--stone); margin-top: 2px; }
+.sale-amount { font-size: 16px; font-weight: 600; }
+.pay-tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; margin-top: 3px; }
+.pay-cash { background: var(--green-light); color: var(--green); }
+.pay-card { background: #e6f1fb; color: #185fa5; }
+.pay-scan { background: var(--amber-light); color: var(--amber); }
+.pay-alipay { background: #e1f5ee; color: #0f6e56; }
+/* MODAL */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; display: none; align-items: flex-end; justify-content: center; }
+.overlay.active { display: flex; }
+.modal { background: var(--white); border-radius: 20px 20px 0 0; width: 100%; max-width: 500px; padding: 24px 20px 36px; max-height: 90vh; overflow-y: auto; }
+.modal-handle { width: 40px; height: 4px; background: var(--line); border-radius: 4px; margin: 0 auto 20px; }
+/* DASHBOARD */
+.dash-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.dash-stat { background: var(--white); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); }
+.dash-label { font-size: 12px; color: var(--stone); margin-bottom: 4px; }
+.dash-value { font-size: 22px; font-weight: 600; }
+/* EMPTY */
+.empty { text-align: center; padding: 50px 20px; color: var(--stone); }
+.loading { text-align: center; padding: 50px 20px; color: var(--stone); font-size: 14px; }
+.spinner { width: 28px; height: 28px; border: 3px solid var(--line); border-top-color: var(--ink); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.toast { position: fixed; bottom: 88px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--ink); color: white; padding: 12px 24px; border-radius: 100px; font-size: 14px; font-weight: 500; z-index: 999; transition: transform 0.3s; white-space: nowrap; }
+.toast.show { transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-title">ชุดปัก ✦</div>
+    <div class="login-sub">Owner เท่านั้น</div>
+    <input class="login-input" type="password" id="pw-input" placeholder="รหัสผ่าน" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-login" onclick="doLogin()">เข้าสู่ระบบ</button>
+    <div class="pw-error" id="pw-error">รหัสผ่านไม่ถูกต้อง</div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app" style="display:none;">
+  <header>
+    <div class="logo">ชุดปัก ✦ <span>Owner</span></div>
+    <button class="btn-logout" onclick="doLogout()">ออกจากระบบ</button>
+  </header>
+
+  <main>
+    <!-- สต๊อก -->
+    <div class="section active" id="tab-stock">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">ทั้งหมด</div><div class="stat-value" id="stat-total">—</div></div>
+        <div class="stat-card"><div class="stat-label">เหลือ</div><div class="stat-value green" id="stat-avail">—</div></div>
+        <div class="stat-card"><div class="stat-label">ขายแล้ว</div><div class="stat-value amber" id="stat-sold">—</div></div>
+      </div>
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
+        สินค้าทั้งหมด
+        <button class="btn-primary" style="width:auto;padding:9px 16px;font-size:13px;margin:0;" onclick="openAddModal()">+ เพิ่มสินค้า</button>
+      </div>
+      <div id="product-container" style="margin-top:14px;"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
+    </div>
+
+    <!-- ประวัติขาย -->
+    <div class="section" id="tab-sales">
+      <div class="section-title">ประวัติการขาย</div>
+      <div id="sales-container"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="section" id="tab-dash">
+      <div class="section-title">Dashboard</div>
+      <div class="dash-stats">
+        <div class="dash-stat"><div class="dash-label">รายได้รวม</div><div class="dash-value green" id="dash-revenue">—</div></div>
+        <div class="dash-stat"><div class="dash-label">กำไรรวม</div><div class="dash-value green" id="dash-profit">—</div></div>
+        <div class="dash-stat"><div class="dash-label">ต้นทุน</div><div class="dash-value amber" id="dash-cost">—</div></div>
+        <div class="dash-stat"><div class="dash-label">ขายแล้ว</div><div class="dash-value" id="dash-units">—</div></div>
+      </div>
+      <div id="pay-breakdown"></div>
+    </div>
+  </main>
+
+  <div class="bottom-nav">
+    <button class="nav-btn active" id="nav-stock" onclick="showTab('stock')"><span class="icon">📦</span>สต๊อก</button>
+    <button class="nav-btn" id="nav-sales" onclick="showTab('sales')"><span class="icon">📋</span>ประวัติขาย</button>
+    <button class="nav-btn" id="nav-dash" onclick="showTab('dash')"><span class="icon">📊</span>Dashboard</button>
+  </div>
+</div>
+
+<!-- Add/Edit Product Modal -->
+<div class="overlay" id="product-overlay" onclick="closeProductModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="form-group">
+      <div class="form-label" id="modal-title">เพิ่มสินค้าใหม่</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">รูปสินค้า</label>
+      <div class="img-upload-wrap">
+        <div class="img-preview" id="modal-preview">👗</div>
+        <div class="img-btns">
+          <button class="btn-img" onclick="document.getElementById('owner-cam').click()">📷 ถ่ายรูป</button>
+          <button class="btn-img" onclick="document.getElementById('owner-gallery').click()">🖼 เลือกจากคลัง</button>
+          <div class="upload-status" id="modal-upload-status">กำลังอัปโหลด...</div>
+        </div>
+      </div>
+      <input type="file" id="owner-cam" accept="image/*" capture="environment" style="display:none" onchange="handleModalImage(event)">
+      <input type="file" id="owner-gallery" accept="image/*" style="display:none" onchange="handleModalImage(event)">
+    </div>
+    <div class="form-group"><label class="form-label">ชื่อสินค้า</label><input class="form-input" type="text" id="modal-name"></div>
+    <div class="price-row">
+      <div class="form-group"><label class="form-label">ราคาทุน (฿)</label><input class="form-input" type="number" id="modal-cost" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">ราคาขาย (฿)</label><input class="form-input" type="number" id="modal-sell" placeholder="0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">จำนวน</label><input class="form-input" type="number" id="modal-qty" placeholder="1" min="1"></div>
+    <div class="form-group"><label class="form-label">หมายเหตุ</label><input class="form-input" type="text" id="modal-note" placeholder="เช่น สีฟ้า"></div>
+    <button class="btn-primary" id="modal-save-btn" onclick="saveProduct()">บันทึกสินค้า</button>
+    <button class="btn-danger" id="modal-del-btn" style="display:none;" onclick="deleteProduct()">ลบสินค้านี้</button>
+    <button style="width:100%;background:none;border:none;padding:12px;font-size:14px;color:var(--stone);cursor:pointer;" onclick="closeProductModal()">ยกเลิก</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbw5_V4HQcKPRz1ddVlJvACW86enTkvQLDC-sA-sseJ24n-r1Rt7qGbrmJ1fOx4cSfYX/exec';
+let products = [], sales = [];
+let editingId = null, modalImageUrl = '';
+
+async function api(action, data = {}) {
+  const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, ...data }) });
+  return res.json();
+}
+
+async function doLogin() {
+  const pw = document.getElementById('pw-input').value;
+  const res = await api('checkPassword', { password: pw });
+  if (res.ok) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    loadProducts();
+  } else {
+    document.getElementById('pw-error').style.display = 'block';
+    document.getElementById('pw-input').value = '';
+  }
+}
+
+function doLogout() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('pw-input').value = '';
+}
+
+function showTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'sales') loadSales();
+  if (name === 'dash') renderDashboard();
+}
+
+async function loadProducts() {
+  try {
+    const data = await api('getProducts');
+    products = data.products || [];
+    renderProducts();
+  } catch(e) { showToast('โหลดไม่ได้'); }
+}
+
+function renderProducts() {
+  const sold = products.filter(p => Number(p.quantity) === 0).length;
+  document.getElementById('stat-total').textContent = products.length;
+  document.getElementById('stat-avail').textContent = products.length - sold;
+  document.getElementById('stat-sold').textContent = sold;
+
+  const c = document.getElementById('product-container');
+  if (!products.length) { c.innerHTML = '<div class="empty">ยังไม่มีสินค้า</div>'; return; }
+  c.innerHTML = `<div class="grid">${products.map(p => {
+    const qty = Number(p.quantity);
+    const badge = qty > 0 ? `<span class="stock-badge badge-ok">เหลือ ${qty}</span>` : `<span class="stock-badge badge-out">หมด</span>`;
+    const img = p.imageUrl ? `<img src="${p.imageUrl}" onerror="this.parentElement.textContent='👗'">` : '👗';
+    return `<div class="card">
+      <div class="card-img">${img}</div>
+      <div class="card-body">
+        <div class="card-name">${p.name}</div>
+        <div class="card-price">฿${Number(p.sellPrice).toLocaleString()}</div>
+        <div class="card-cost">ทุน ฿${Number(p.costPrice||0).toLocaleString()}</div>
+        ${badge}
+        <div class="card-actions">
+          <button class="btn-edit" onclick="openEditModal('${p.id}')">แก้ไข</button>
+          <button class="btn-del" onclick="confirmDelete('${p.id}')">ลบ</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function loadSales() {
+  const c = document.getElementById('sales-container');
+  c.innerHTML = '<div class="loading"><div class="spinner"></div>กำลังโหลด...</div>';
+  try {
+    const data = await api('getSales');
+    sales = data.sales || [];
+    if (!sales.length) { c.innerHTML = '<div class="empty">ยังไม่มีการขาย</div>'; return; }
+    const sorted = [...sales].sort((a,b) => new Date(b.saleDate) - new Date(a.saleDate));
+    const payLabel = { cash:'Cash', card:'Card', scan:'Scan/QR', alipay:'Alipay' };
+    const payClass = { cash:'pay-cash', card:'pay-card', scan:'pay-scan', alipay:'pay-alipay' };
+    c.innerHTML = sorted.map(s => {
+      const p = products.find(x => x.id === s.productId);
+      const thumb = p && p.imageUrl ? `<img src="${p.imageUrl}">` : '👗';
+      return `<div class="sale-item">
+        <div class="sale-thumb">${thumb}</div>
+        <div class="sale-info">
+          <div class="sale-name">${s.productName}</div>
+          <div class="sale-meta">${s.saleDate} · ${s.soldBy}</div>
+          <span class="pay-tag ${payClass[s.paymentMethod]||'pay-cash'}">${payLabel[s.paymentMethod]||s.paymentMethod}</span>
+        </div>
+        <div class="sale-amount">฿${Number(s.total).toLocaleString()}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { c.innerHTML = '<div class="empty">โหลดไม่ได้</div>'; }
+}
+
+function renderDashboard() {
+  const revenue = sales.reduce((a,s) => a + Number(s.total), 0);
+  const cost = sales.reduce((a,s) => { const p = products.find(x => x.id === s.productId); return a + (p ? Number(p.costPrice||0) * Number(s.quantity) : 0); }, 0);
+  document.getElementById('dash-revenue').textContent = '฿' + revenue.toLocaleString();
+  document.getElementById('dash-profit').textContent = '฿' + (revenue - cost).toLocaleString();
+  document.getElementById('dash-cost').textContent = '฿' + cost.toLocaleString();
+  document.getElementById('dash-units').textContent = sales.length + ' รายการ';
+  const pc = {};
+  sales.forEach(s => { pc[s.paymentMethod] = (pc[s.paymentMethod]||0) + 1; });
+  const payLabel = { cash:'Cash', card:'Card', scan:'Scan/QR', alipay:'Alipay' };
+  document.getElementById('pay-breakdown').innerHTML = '<div style="font-weight:600;margin-bottom:10px;">วิธีชำระเงิน</div>' + Object.entries(pc).map(([k,v]) => `<div style="display:flex;justify-content:space-between;padding:12px 14px;background:var(--white);border-radius:10px;margin-bottom:8px;box-shadow:var(--shadow);"><span>${payLabel[k]||k}</span><span style="font-weight:600;">${v} ครั้ง</span></div>`).join('');
+}
+
+function openAddModal() {
+  editingId = null; modalImageUrl = '';
+  document.getElementById('modal-title').textContent = 'เพิ่มสินค้าใหม่';
+  document.getElementById('modal-preview').innerHTML = '👗';
+  document.getElementById('modal-name').value = '';
+  document.getElementById('modal-cost').value = '';
+  document.getElementById('modal-sell').value = '';
+  document.getElementById('modal-qty').value = '1';
+  document.getElementById('modal-note').value = '';
+  document.getElementById('modal-del-btn').style.display = 'none';
+  document.getElementById('modal-upload-status').style.display = 'none';
+  document.getElementById('product-overlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function openEditModal(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  editingId = id; modalImageUrl = p.imageUrl || '';
+  document.getElementById('modal-title').textContent = 'แก้ไขสินค้า';
+  if (p.imageUrl) { document.getElementById('modal-preview').innerHTML = `<img src="${p.imageUrl}">`; }
+  else { document.getElementById('modal-preview').innerHTML = '👗'; }
+  document.getElementById('modal-name').value = p.name || '';
+  document.getElementById('modal-cost').value = p.costPrice || '';
+  document.getElementById('modal-sell').value = p.sellPrice || '';
+  document.getElementById('modal-qty').value = p.quantity || 1;
+  document.getElementById('modal-note').value = p.note || '';
+  document.getElementById('modal-del-btn').style.display = 'block';
+  document.getElementById('modal-upload-status').style.display = 'none';
+  document.getElementById('product-overlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeProductModal(e) {
+  if (e && e.target !== document.getElementById('product-overlay')) return;
+  document.getElementById('product-overlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+function handleModalImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const img = new Image();
+    img.onload = async () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 800;
+      let w = img.width, h = img.height;
+      if (w > h) { if (w > MAX) { h = h * MAX / w; w = MAX; } }
+      else { if (h > MAX) { w = w * MAX / h; h = MAX; } }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const compressed = canvas.toDataURL('image/jpeg', 0.8);
+      document.getElementById('modal-preview').innerHTML = `<img src="${compressed}">`;
+      const status = document.getElementById('modal-upload-status');
+      status.style.display = 'block'; status.style.color = ''; status.textContent = 'กำลังอัปโหลด...';
+      try {
+        const result = await api('uploadImage', { imageData: compressed.split(',')[1], mimeType: 'image/jpeg', fileName: 'product_' + Date.now() + '.jpg' });
+        if (result.imageUrl) { modalImageUrl = result.imageUrl; status.textContent = '✅ อัปโหลดสำเร็จ!'; status.style.color = '#1d9e75'; }
+        else { status.textContent = '⚠️ อัปโหลดไม่สำเร็จ'; }
+      } catch(err) { status.textContent = '⚠️ อัปโหลดไม่สำเร็จ'; }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function saveProduct() {
+  const name = document.getElementById('modal-name').value.trim();
+  const cost = document.getElementById('modal-cost').value;
+  const sell = document.getElementById('modal-sell').value;
+  const qty = document.getElementById('modal-qty').value;
+  const note = document.getElementById('modal-note').value.trim();
+  if (!name || !sell || !qty) { showToast('กรุณากรอกข้อมูลให้ครบ'); return; }
+  const btn = document.getElementById('modal-save-btn');
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  try {
+    if (editingId) {
+      await api('editProduct', { id: editingId, name, costPrice: Number(cost||0), sellPrice: Number(sell), quantity: Number(qty), note, imageUrl: modalImageUrl });
+      showToast('✅ แก้ไขแล้ว');
+    } else {
+      await api('addProduct', { name, costPrice: Number(cost||0), sellPrice: Number(sell), quantity: Number(qty), note, imageUrl: modalImageUrl, addedBy: 'Owner' });
+      showToast('✅ เพิ่มสินค้าแล้ว');
+    }
+    closeProductModal();
+    loadProducts();
+  } catch(e) { showToast('เกิดข้อผิดพลาด'); }
+  btn.disabled = false; btn.textContent = 'บันทึกสินค้า';
+}
+
+async function confirmDelete(id) {
+  if (!confirm('ลบสินค้านี้?')) return;
+  await api('deleteProduct', { id });
+  showToast('ลบแล้ว');
+  loadProducts();
+}
+
+async function deleteProduct() {
+  if (!confirm('ลบสินค้านี้?')) return;
+  await api('deleteProduct', { id: editingId });
+  closeProductModal();
+  showToast('ลบแล้ว');
+  loadProducts();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
