@@ -168,6 +168,51 @@ main { padding: 16px; max-width: 700px; margin: 0 auto; }
 <div class="toast" id="toast"></div>
 
 <script>
+
+// ---- Speed helpers ----
+// Remembers product/sales lists for 60s so switching tabs doesn't re-call Apps Script.
+// Any save/edit/sale/upload clears it so the next read is fresh.
+const _apiCache = {};
+const API_CACHE_MS = 60000;
+function _cachedFetch(url, action, data) {
+  const isRead = action.startsWith('get');
+  if (isRead) {
+    const c = _apiCache[action];
+    if (c && Date.now() - c.t < API_CACHE_MS) return c.p;
+  } else {
+    for (const k in _apiCache) delete _apiCache[k];
+  }
+  const p = fetch(url, { method: 'POST', body: JSON.stringify({ action, ...data }) }).then(r => r.json());
+  if (isRead) { _apiCache[action] = { t: Date.now(), p }; p.catch(() => delete _apiCache[action]); }
+  return p;
+}
+// Drive photos: ask Google for a small thumbnail instead of the full-size original.
+function imgSrc(url, w) {
+  const m = String(url || '').match(/(?:[?&]id=|\/d\/)([A-Za-z0-9_-]{20,})/);
+  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w${w || 400}` : (url || '');
+}
+// If the thumbnail fails, try the original link once before giving up.
+function imgRetry(el) {
+  const full = el.dataset.full;
+  if (full && el.src !== full) { el.dataset.full = ''; el.src = full; return true; }
+  return false;
+}
+// Shrink phone photos before upload (a 4 MB photo becomes ~150 KB).
+function compressImage(dataUrl, max = 1200, quality = 0.8) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > max || h > max) { const r = Math.min(max / w, max / h); w = Math.round(w * r); h = Math.round(h * r); }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
 const API_KEY = 'chudpak_api_url';
 let products = [];
 let selectedProduct = null;
@@ -179,8 +224,7 @@ function getApiUrl() { return localStorage.getItem(API_KEY); }
 async function api(action, data = {}) {
   const url = getApiUrl();
   if (!url) throw new Error('No API URL');
-  const res = await fetch(url, { method: 'POST', body: JSON.stringify({ action, ...data }) });
-  return res.json();
+  return _cachedFetch(url, action, data);
 }
 
 function checkSetup() {
@@ -223,7 +267,7 @@ function renderProducts(list) {
   c.innerHTML = `<div class="grid">${list.map(p => {
     const qty = Number(p.quantity);
     const badge = qty > 0 ? `<span class="stock-badge badge-ok">เหลือ ${qty}</span>` : `<span class="stock-badge badge-out">หมดแล้ว</span>`;
-    const img = p.imageUrl ? `<img src="${p.imageUrl}" onerror="this.parentElement.textContent='👗'">` : '👗';
+    const img = p.imageUrl ? `<img src="${imgSrc(p.imageUrl)}" data-full="${p.imageUrl}" loading="lazy" decoding="async" onerror="if(!imgRetry(this)){this.parentElement.textContent='👗'}">` : '👗';
     return `<div class="card">
       <div class="card-img">${img}</div>
       <div class="card-body">
@@ -249,7 +293,7 @@ async function loadSaleProducts() {
     const available = products.filter(p => Number(p.quantity) > 0);
     if (!available.length) { c.innerHTML = '<div class="empty"><div class="empty-icon">📦</div><p>ไม่มีสินค้า</p></div>'; return; }
     c.innerHTML = `<div class="grid">${available.map(p => {
-      const img = p.imageUrl ? `<img src="${p.imageUrl}" onerror="this.parentElement.textContent='👗'">` : '👗';
+      const img = p.imageUrl ? `<img src="${imgSrc(p.imageUrl)}" data-full="${p.imageUrl}" loading="lazy" decoding="async" onerror="if(!imgRetry(this)){this.parentElement.textContent='👗'}">` : '👗';
       return `<div class="card" onclick="openSaleModal('${p.id}')">
         <div class="card-img">${img}</div>
         <div class="card-body">
@@ -338,7 +382,7 @@ async function addProduct() {
 function openSaleModal(id) {
   selectedProduct = products.find(p => p.id === id);
   if (!selectedProduct) return;
-  document.getElementById('modal-img').innerHTML = selectedProduct.imageUrl ? `<img src="${selectedProduct.imageUrl}">` : '👗';
+  document.getElementById('modal-img').innerHTML = selectedProduct.imageUrl ? `<img src="${imgSrc(selectedProduct.imageUrl)}" data-full="${selectedProduct.imageUrl}" loading="lazy" decoding="async" onerror="imgRetry(this)">` : '👗';
   document.getElementById('modal-name').textContent = selectedProduct.name;
   document.getElementById('modal-price').textContent = '฿' + Number(selectedProduct.sellPrice).toLocaleString();
   document.getElementById('sale-date').value = new Date().toISOString().split('T')[0];
