@@ -189,7 +189,7 @@ function _cachedFetch(url, action, data) {
 // Drive photos: ask Google for a small thumbnail instead of the full-size original.
 function imgSrc(url, w) {
   const m = String(url || '').match(/(?:[?&]id=|\/d\/)([A-Za-z0-9_-]{20,})/);
-  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w${w || 400}` : (url || '');
+  return m ? `https://lh3.googleusercontent.com/d/${m[1]}=w${w || 400}` : (url || '');
 }
 // If the thumbnail fails, try the original link once before giving up.
 function imgRetry(el) {

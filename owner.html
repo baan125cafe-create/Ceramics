@@ -321,7 +321,7 @@ function _cachedFetch(url, action, data) {
 // Drive photos: ask Google for a small thumbnail instead of the full-size original.
 function imgSrc(url, w) {
   const m = String(url || '').match(/(?:[?&]id=|\/d\/)([A-Za-z0-9_-]{20,})/);
-  return m ? `https://drive.google.com/thumbnail?id=${m[1]}&sz=w${w || 400}` : (url || '');
+  return m ? `https://lh3.googleusercontent.com/d/${m[1]}=w${w || 400}` : (url || '');
 }
 // If the thumbnail fails, try the original link once before giving up.
 function imgRetry(el) {
@@ -329,6 +329,24 @@ function imgRetry(el) {
   if (full && el.src !== full) { el.dataset.full = ''; el.src = full; return true; }
   return false;
 }
+// Products + sales in one trip. Falls back to two calls if the back end
+// hasn't been updated with the 'getAll' action yet.
+let _noGetAll = false;
+async function apiGetAll() {
+  if (!_noGetAll) try {
+    const r = await apiCall('getAll');
+    if (r && Array.isArray(r.products) && Array.isArray(r.sales)) {
+      const t = Date.now();
+      _apiCache.getProducts = { t, p: Promise.resolve({ products: r.products }) };
+      _apiCache.getSales = { t, p: Promise.resolve({ sales: r.sales }) };
+      return [{ products: r.products }, { sales: r.sales }];
+    }
+  } catch (e) {}
+  _noGetAll = true;
+  delete _apiCache.getAll;
+  return Promise.all([apiCall('getProducts'), apiCall('getSales')]);
+}
+
 // Shrink phone photos before upload (a 4 MB photo becomes ~150 KB).
 function compressImage(dataUrl, max = 1200, quality = 0.8) {
   return new Promise((resolve) => {
@@ -372,7 +390,7 @@ function showTab(name) {
 
 async function loadDashboard() {
   try {
-    const [pd, sd] = await Promise.all([apiCall('getProducts'), apiCall('getSales')]);
+    const [pd, sd] = await apiGetAll();
     products = pd.products || [];
     sales = sd.sales || [];
     const totalCost = products.reduce((s,p) => s + Number(p.costPrice) * Number(p.quantity), 0);
@@ -559,7 +577,7 @@ async function loadSales() {
   const container = document.getElementById('sales-container');
   container.innerHTML = `<div class="loading"><div class="spinner"></div>Loading...</div>`;
   try {
-    const [sd, pd] = await Promise.all([apiCall('getSales'), apiCall('getProducts')]);
+    const [sd, pd] = await apiGetAll().then(([p, s]) => [s, p]);
     sales = sd.sales || [];
     products = pd.products || [];
     renderSales(sales);
