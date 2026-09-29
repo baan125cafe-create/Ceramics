@@ -635,7 +635,7 @@ function showToast(msg) {
 // is public, so it is not real security. To change the password, run in Terminal:
 //   printf 'NEW-PASSWORD' | shasum -a 256
 // and paste the long code below.
-const OWNER_PASS_HASH = '8540436bc6d49dd2048dfa24fa2d2c3c7853f4b24c9967e38350db3f427672a2';
+const OWNER_PASS_HASH = 'bdbff44bf9ee8cddc52df268ef76cc277e493fbae2ae0c54adc416ef7c8406f1';
 const OWNER_AUTH_KEY = 'baan125_owner_auth';
 async function _sha256(s) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
