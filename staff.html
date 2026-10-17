@@ -94,13 +94,14 @@
   .form-card h3 { font-family: 'DM Serif Display', serif; font-size: 20px; margin-bottom: 18px; }
   .form-group { margin-bottom: 14px; }
   label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--stone); margin-bottom: 6px; }
-  input[type="text"], input[type="number"], input[type="date"] {
+  input[type="text"], input[type="number"], input[type="date"], textarea {
     width: 100%; padding: 12px 14px; border: 1.5px solid var(--line);
     border-radius: 10px; font-family: 'DM Sans', sans-serif;
     font-size: 15px; color: var(--ink); background: var(--white);
     outline: none; transition: border-color 0.2s;
   }
-  input:focus { border-color: var(--clay); }
+  input:focus, textarea:focus { border-color: var(--clay); }
+  textarea { resize: vertical; min-height: 64px; }
 
   /* IMAGE UPLOAD */
   .img-upload-wrap { display: flex; gap: 10px; margin-bottom: 14px; }
@@ -327,6 +328,10 @@
     <div class="form-group">
       <label>Sold by *</label>
       <input type="text" id="sold-by" placeholder="Your name">
+    </div>
+    <div class="form-group">
+      <label>Note (optional)</label>
+      <textarea id="sale-note" rows="2" maxlength="300" placeholder="e.g. discount, gift wrap, customer request"></textarea>
     </div>
     <button class="btn-primary" id="record-btn" onclick="recordSale()">Record Sale</button>
   </div>
@@ -570,7 +575,9 @@ function openSaleModal(id) {
   document.getElementById('modal-stock').textContent = selectedProduct.quantity;
   const imgEl = document.getElementById('modal-img');
   imgEl.innerHTML = selectedProduct.imageUrl ? `<img src="${imgSrc(selectedProduct.imageUrl)}" data-full="${selectedProduct.imageUrl}" loading="lazy" decoding="async" alt="${selectedProduct.name}" onerror="if(!imgRetry(this)){this.parentElement.textContent='🏺'}">` : '🏺';
-  document.getElementById('date-input').value = new Date().toISOString().split('T')[0];
+  // Today in Phuket time (toISOString is UTC, which is yesterday before 7 AM).
+  document.getElementById('date-input').value = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+  document.getElementById('sale-note').value = '';
   document.getElementById('qty-input').value = 1;
   document.getElementById('qty-input').max = selectedProduct.quantity;
   selectPayment('cash');
@@ -612,11 +619,13 @@ async function recordSale() {
       paymentMethod: selectedPayment,
       saleDate: date,
       soldBy,
-      newQuantity: newQty
+      newQuantity: newQty,
+      note: document.getElementById('sale-note').value.trim()
     });
     if (res && res.error) throw new Error(res.error);
     document.getElementById('sale-overlay').classList.remove('active');
     document.getElementById('sold-by').value = '';
+    document.getElementById('sale-note').value = '';
     showToast('✅ Sale recorded!');
     loadSaleProducts();
   } catch(e) {
