@@ -45,6 +45,7 @@ main { padding: 16px; max-width: 700px; margin: 0 auto; }
 .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--stone); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
 .form-input { width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 10px; font-family: 'Sarabun', sans-serif; font-size: 15px; color: var(--ink); outline: none; background: var(--white); }
 .form-input:focus { border-color: var(--ink); }
+textarea.form-input { resize: vertical; min-height: 64px; font-family: inherit; }
 /* IMAGE */
 .img-upload-wrap { display: flex; gap: 10px; margin-bottom: 14px; }
 .img-preview { width: 90px; height: 90px; border-radius: 12px; background: var(--warm); display: flex; align-items: center; justify-content: center; font-size: 30px; flex-shrink: 0; overflow: hidden; border: 1.5px solid var(--line); }
@@ -150,6 +151,7 @@ main { padding: 16px; max-width: 700px; margin: 0 auto; }
       </div>
     </div>
     <div class="form-group"><label class="form-label">ขายโดย *</label><input class="form-input" type="text" id="sold-by" placeholder="ชื่อของคุณ"></div>
+    <div class="form-group"><label class="form-label">หมายเหตุ (ไม่บังคับ)</label><textarea class="form-input" id="sale-note" rows="2" maxlength="300" placeholder="เช่น ส่วนลด, ห่อของขวัญ, ลูกค้าขอ"></textarea></div>
     <button class="btn-primary" id="record-btn" onclick="recordSale()">✓ ยืนยันการขาย</button>
   </div>
 </div>
@@ -385,7 +387,9 @@ function openSaleModal(id) {
   document.getElementById('modal-img').innerHTML = selectedProduct.imageUrl ? `<img src="${imgSrc(selectedProduct.imageUrl)}" data-full="${selectedProduct.imageUrl}" loading="lazy" decoding="async" onerror="imgRetry(this)">` : '👗';
   document.getElementById('modal-name').textContent = selectedProduct.name;
   document.getElementById('modal-price').textContent = '฿' + Number(selectedProduct.sellPrice).toLocaleString();
-  document.getElementById('sale-date').value = new Date().toISOString().split('T')[0];
+  // Phuket date (toISOString gives UTC, which is still yesterday before 7 AM)
+  document.getElementById('sale-date').value = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+  document.getElementById('sale-note').value = '';
   document.getElementById('sale-price').value = selectedProduct.sellPrice;
   selectPay('cash');
   document.getElementById('sale-overlay').classList.add('active');
@@ -423,11 +427,13 @@ async function recordSale() {
       paymentMethod: selectedPay,
       saleDate: date,
       soldBy,
+      note: document.getElementById('sale-note').value.trim(),
       newQuantity: newQty
     });
     document.getElementById('sale-overlay').classList.remove('active');
     document.body.style.overflow = '';
     document.getElementById('sold-by').value = '';
+    document.getElementById('sale-note').value = '';
     showToast('✅ บันทึกการขายแล้ว');
     loadSaleProducts();
   } catch(e) { showToast('เกิดข้อผิดพลาด'); }

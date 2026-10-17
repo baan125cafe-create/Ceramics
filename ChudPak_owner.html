@@ -100,6 +100,34 @@ main { padding: 16px; max-width: 700px; margin: 0 auto; }
 .dash-stat { background: var(--white); border-radius: 12px; padding: 16px; box-shadow: var(--shadow); }
 .dash-label { font-size: 12px; color: var(--stone); margin-bottom: 4px; }
 .dash-value { font-size: 22px; font-weight: 600; }
+.dash-value.green { color: var(--green); }
+.dash-value.amber { color: var(--amber); }
+.dash-value.red { color: var(--red); }
+.dash-sub { font-size: 11px; color: var(--stone); margin-top: 2px; }
+/* REVENUE BY MONTH */
+.chart-card { background: var(--white); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.chart-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px; flex-wrap: wrap; }
+.chart-head h3 { font-size: 16px; font-weight: 600; }
+.range-btns { display: flex; gap: 6px; }
+.range-btn { padding: 6px 12px; border: 1.5px solid var(--line); border-radius: 20px; background: var(--white); font-family: 'Sarabun', sans-serif; font-size: 12px; cursor: pointer; color: var(--ink); }
+.range-btn.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+.bar-row { display: grid; grid-template-columns: 56px 1fr 84px; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12px; }
+.bar-label { color: var(--stone); }
+.bar-track { background: var(--warm); border-radius: 6px; height: 18px; overflow: hidden; }
+.bar-fill { background: var(--ink); height: 100%; border-radius: 6px; min-width: 2px; }
+.bar-val { text-align: right; font-weight: 600; }
+.chart-total { font-size: 12px; color: var(--stone); margin-top: 10px; text-align: right; }
+/* SALES TOOLS */
+.tools-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.tools-row .form-input { flex: 1; min-width: 160px; padding: 10px 12px; font-size: 14px; }
+.month-select { padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: var(--white); font-family: 'Sarabun', sans-serif; font-size: 14px; color: var(--ink); outline: none; }
+.btn-export { padding: 10px 14px; border: none; border-radius: 10px; background: var(--green); color: #fff; font-family: 'Sarabun', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.btn-export:disabled { opacity: 0.6; cursor: wait; }
+.sale-note { font-size: 12px; color: var(--amber); margin-top: 3px; }
+.sales-summary { font-size: 13px; color: var(--stone); margin-bottom: 10px; }
+/* SOLD OUT */
+.card.soldout .card-img img { filter: grayscale(0.6); opacity: 0.8; }
+.card-last { font-size: 11px; color: var(--stone); margin: 2px 0 4px; }
 /* EMPTY */
 .empty { text-align: center; padding: 50px 20px; color: var(--stone); }
 .loading { text-align: center; padding: 50px 20px; color: var(--stone); font-size: 14px; }
@@ -135,18 +163,33 @@ main { padding: 16px; max-width: 700px; margin: 0 auto; }
       <div class="stats-row">
         <div class="stat-card"><div class="stat-label">ทั้งหมด</div><div class="stat-value" id="stat-total">—</div></div>
         <div class="stat-card"><div class="stat-label">เหลือ</div><div class="stat-value green" id="stat-avail">—</div></div>
-        <div class="stat-card"><div class="stat-label">ขายแล้ว</div><div class="stat-value amber" id="stat-sold">—</div></div>
+        <div class="stat-card"><div class="stat-label">หมดแล้ว</div><div class="stat-value amber" id="stat-sold">—</div></div>
       </div>
       <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
-        สินค้าทั้งหมด
+        สินค้าที่มีในสต๊อก
         <button class="btn-primary" style="width:auto;padding:9px 16px;font-size:13px;margin:0;" onclick="openAddModal()">+ เพิ่มสินค้า</button>
       </div>
       <div id="product-container" style="margin-top:14px;"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
     </div>
 
+    <!-- สินค้าหมด -->
+    <div class="section" id="tab-soldout">
+      <div class="section-title">สินค้าหมดแล้ว</div>
+      <div class="tools-row">
+        <input class="form-input" type="text" id="soldout-search" placeholder="ค้นหาชื่อสินค้า..." oninput="renderSoldOut()">
+      </div>
+      <div id="soldout-container"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
+    </div>
+
     <!-- ประวัติขาย -->
     <div class="section" id="tab-sales">
       <div class="section-title">ประวัติการขาย</div>
+      <div class="tools-row">
+        <input class="form-input" type="text" id="sales-search" placeholder="ค้นหา สินค้า / คนขาย / หมายเหตุ" oninput="applySalesFilters()">
+        <select class="month-select" id="sales-month" onchange="applySalesFilters()"><option value="">ทุกเดือน</option></select>
+        <button class="btn-export" id="export-btn" onclick="exportSales()">⬇ Excel</button>
+      </div>
+      <div class="sales-summary" id="sales-summary"></div>
       <div id="sales-container"><div class="loading"><div class="spinner"></div>กำลังโหลด...</div></div>
     </div>
 
@@ -155,9 +198,22 @@ main { padding: 16px; max-width: 700px; margin: 0 auto; }
       <div class="section-title">Dashboard</div>
       <div class="dash-stats">
         <div class="dash-stat"><div class="dash-label">รายได้รวม</div><div class="dash-value green" id="dash-revenue">—</div></div>
-        <div class="dash-stat"><div class="dash-label">กำไรรวม</div><div class="dash-value green" id="dash-profit">—</div></div>
-        <div class="dash-stat"><div class="dash-label">ต้นทุน</div><div class="dash-value amber" id="dash-cost">—</div></div>
+        <div class="dash-stat"><div class="dash-label">กำไรขั้นต้น (GP)</div><div class="dash-value green" id="dash-profit">—</div></div>
+        <div class="dash-stat"><div class="dash-label">Margin %</div><div class="dash-value" id="dash-margin">—</div><div class="dash-sub" id="dash-margin-sub"></div></div>
+        <div class="dash-stat"><div class="dash-label">ต้นทุนขาย</div><div class="dash-value amber" id="dash-cost">—</div></div>
         <div class="dash-stat"><div class="dash-label">ขายแล้ว</div><div class="dash-value" id="dash-units">—</div></div>
+        <div class="dash-stat"><div class="dash-label">สินค้าหมด</div><div class="dash-value red" id="dash-soldout">—</div></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-head">
+          <h3>รายได้รายเดือน</h3>
+          <div class="range-btns">
+            <button class="range-btn active" onclick="setRevRange(3,this)">3 เดือน</button>
+            <button class="range-btn" onclick="setRevRange(6,this)">6 เดือน</button>
+            <button class="range-btn" onclick="setRevRange(12,this)">12 เดือน</button>
+          </div>
+        </div>
+        <div id="rev-chart"></div>
       </div>
       <div id="pay-breakdown"></div>
     </div>
@@ -165,6 +221,7 @@ main { padding: 16px; max-width: 700px; margin: 0 auto; }
 
   <div class="bottom-nav">
     <button class="nav-btn active" id="nav-stock" onclick="showTab('stock')"><span class="icon">📦</span>สต๊อก</button>
+    <button class="nav-btn" id="nav-soldout" onclick="showTab('soldout')"><span class="icon">🏷</span>หมดแล้ว</button>
     <button class="nav-btn" id="nav-sales" onclick="showTab('sales')"><span class="icon">📋</span>ประวัติขาย</button>
     <button class="nav-btn" id="nav-dash" onclick="showTab('dash')"><span class="icon">📊</span>Dashboard</button>
   </div>
@@ -305,14 +362,44 @@ function doLogout() {
   document.getElementById('pw-input').value = '';
 }
 
+// ---- Small helpers ----
+// Dates are shown in Phuket time. Apps Script sends dates as UTC, so a sale at
+// 1 AM on the 12th would otherwise show as the 11th.
+function bkkDate(x) {
+  if (!x) return '';
+  const d = new Date(x);
+  if (isNaN(d)) return String(x).substring(0, 10);
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' }); // YYYY-MM-DD
+}
+function bkkMonth(x) { return bkkDate(x).substring(0, 7); } // YYYY-MM
+const TH_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function monthLabel(ym) { const [y, m] = ym.split('-').map(Number); return `${TH_MONTHS[m-1]} ${String(y).slice(2)}`; }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function money(n) { return '฿' + Math.round(Number(n) || 0).toLocaleString(); }
+const payLabel = { cash:'Cash', card:'Card', scan:'Scan/QR', alipay:'Alipay' };
+const payClass = { cash:'pay-cash', card:'pay-card', scan:'pay-scan', alipay:'pay-alipay' };
+
+// Loads products and sales together (both cached for 60s by _cachedFetch).
+async function loadAll() {
+  const [pd, sd] = await Promise.all([api('getProducts'), api('getSales')]);
+  products = pd.products || [];
+  sales = sd.sales || [];
+}
+
+let currentTab = 'stock';
 function showTab(name) {
+  currentTab = name;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'stock') loadProducts();
+  if (name === 'soldout') loadSoldOut();
   if (name === 'sales') loadSales();
-  if (name === 'dash') renderDashboard();
+  if (name === 'dash') loadDashboard();
 }
+// After a save/delete, reload whichever list is on screen.
+function refreshCurrent() { if (currentTab === 'soldout') loadSoldOut(); else loadProducts(); }
 
 async function loadProducts() {
   try {
@@ -322,71 +409,223 @@ async function loadProducts() {
   } catch(e) { showToast('โหลดไม่ได้'); }
 }
 
-function renderProducts() {
-  const sold = products.filter(p => Number(p.quantity) === 0).length;
-  document.getElementById('stat-total').textContent = products.length;
-  document.getElementById('stat-avail').textContent = products.length - sold;
-  document.getElementById('stat-sold').textContent = sold;
-
-  const c = document.getElementById('product-container');
-  if (!products.length) { c.innerHTML = '<div class="empty">ยังไม่มีสินค้า</div>'; return; }
-  c.innerHTML = `<div class="grid">${products.map(p => {
-    const qty = Number(p.quantity);
-    const badge = qty > 0 ? `<span class="stock-badge badge-ok">เหลือ ${qty}</span>` : `<span class="stock-badge badge-out">หมด</span>`;
-    const img = p.imageUrl ? `<img src="${imgSrc(p.imageUrl)}" data-full="${p.imageUrl}" loading="lazy" decoding="async" onerror="if(!imgRetry(this)){this.parentElement.textContent='👗'}">` : '👗';
-    return `<div class="card">
-      <div class="card-img">${img}</div>
-      <div class="card-body">
-        <div class="card-name">${p.name}</div>
-        <div class="card-price">฿${Number(p.sellPrice).toLocaleString()}</div>
-        <div class="card-cost">ทุน ฿${Number(p.costPrice||0).toLocaleString()}</div>
-        ${badge}
-        <div class="card-actions">
-          <button class="btn-edit" onclick="openEditModal('${p.id}')">แก้ไข</button>
-          <button class="btn-del" onclick="confirmDelete('${p.id}')">ลบ</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('')}</div>`;
+function productImg(p) {
+  return p.imageUrl ? `<img src="${esc(imgSrc(p.imageUrl))}" data-full="${esc(p.imageUrl)}" loading="lazy" decoding="async" onerror="if(!imgRetry(this)){this.parentElement.textContent='👗'}">` : '👗';
 }
 
+// Stock tab shows only items with quantity > 0. Sold-out items live in their own tab.
+function renderProducts() {
+  const inStock = products.filter(p => Number(p.quantity) > 0);
+  document.getElementById('stat-total').textContent = products.length;
+  document.getElementById('stat-avail').textContent = inStock.length;
+  document.getElementById('stat-sold').textContent = products.length - inStock.length;
+
+  const c = document.getElementById('product-container');
+  if (!inStock.length) { c.innerHTML = '<div class="empty">ไม่มีสินค้าในสต๊อก</div>'; return; }
+  c.innerHTML = `<div class="grid">${inStock.map(p => `<div class="card">
+      <div class="card-img">${productImg(p)}</div>
+      <div class="card-body">
+        <div class="card-name">${esc(p.name)}</div>
+        <div class="card-price">${money(p.sellPrice)}</div>
+        <div class="card-cost">ทุน ${money(p.costPrice)}</div>
+        <span class="stock-badge badge-ok">เหลือ ${Number(p.quantity)}</span>
+        <div class="card-actions">
+          <button class="btn-edit" onclick="openEditModal('${esc(p.id)}')">แก้ไข</button>
+          <button class="btn-del" onclick="confirmDelete('${esc(p.id)}')">ลบ</button>
+        </div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// ---- Sold Out tab ----
+async function loadSoldOut() {
+  const c = document.getElementById('soldout-container');
+  c.innerHTML = '<div class="loading"><div class="spinner"></div>กำลังโหลด...</div>';
+  try { await loadAll(); renderSoldOut(); }
+  catch(e) { c.innerHTML = '<div class="empty">โหลดไม่ได้</div>'; }
+}
+
+function renderSoldOut() {
+  const q = document.getElementById('soldout-search').value.trim().toLowerCase();
+  // Most recent sale date per product (by id, falling back to name).
+  const lastSold = {};
+  sales.forEach(s => {
+    const d = bkkDate(s.saleDate);
+    [s.productId, s.productName].forEach(k => { if (k && (!lastSold[k] || d > lastSold[k])) lastSold[k] = d; });
+  });
+  const list = products
+    .filter(p => Number(p.quantity) <= 0)
+    .filter(p => !q || String(p.name || '').toLowerCase().includes(q) || String(p.note || '').toLowerCase().includes(q))
+    .map(p => ({ p, last: lastSold[p.id] || lastSold[p.name] || '' }))
+    .sort((a, b) => b.last.localeCompare(a.last));
+  const c = document.getElementById('soldout-container');
+  if (!list.length) { c.innerHTML = `<div class="empty">${q ? 'ไม่พบสินค้า' : 'ยังไม่มีสินค้าที่หมด'}</div>`; return; }
+  c.innerHTML = `<div class="grid">${list.map(({ p, last }) => `<div class="card soldout">
+      <div class="card-img">${productImg(p)}</div>
+      <div class="card-body">
+        <div class="card-name">${esc(p.name)}</div>
+        <div class="card-price">${money(p.sellPrice)}</div>
+        <div class="card-last">ขายล่าสุด ${last || '—'}</div>
+        <span class="stock-badge badge-out">หมด</span>
+        <div class="card-actions">
+          <button class="btn-edit" onclick="openEditModal('${esc(p.id)}')">เติมสต๊อก</button>
+          <button class="btn-del" onclick="confirmDelete('${esc(p.id)}')">ลบ</button>
+        </div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+// ---- Sales tab ----
 async function loadSales() {
   const c = document.getElementById('sales-container');
   c.innerHTML = '<div class="loading"><div class="spinner"></div>กำลังโหลด...</div>';
   try {
-    const data = await api('getSales');
-    sales = data.sales || [];
-    if (!sales.length) { c.innerHTML = '<div class="empty">ยังไม่มีการขาย</div>'; return; }
-    const sorted = [...sales].sort((a,b) => new Date(b.saleDate) - new Date(a.saleDate));
-    const payLabel = { cash:'Cash', card:'Card', scan:'Scan/QR', alipay:'Alipay' };
-    const payClass = { cash:'pay-cash', card:'pay-card', scan:'pay-scan', alipay:'pay-alipay' };
-    c.innerHTML = sorted.map(s => {
-      const p = products.find(x => x.id === s.productId);
-      const thumb = p && p.imageUrl ? `<img src="${imgSrc(p.imageUrl)}" data-full="${p.imageUrl}" loading="lazy" decoding="async" onerror="imgRetry(this)">` : '👗';
-      return `<div class="sale-item">
-        <div class="sale-thumb">${thumb}</div>
-        <div class="sale-info">
-          <div class="sale-name">${s.productName}</div>
-          <div class="sale-meta">${String(s.saleDate).substring(0,10)} · ${s.soldBy}</div>
-          <span class="pay-tag ${payClass[s.paymentMethod]||'pay-cash'}">${payLabel[s.paymentMethod]||s.paymentMethod}</span>
-        </div>
-        <div class="sale-amount">฿${Number(s.total).toLocaleString()}</div>
-      </div>`;
-    }).join('');
+    await loadAll();
+    fillMonthSelect();
+    applySalesFilters();
   } catch(e) { c.innerHTML = '<div class="empty">โหลดไม่ได้</div>'; }
 }
 
-function renderDashboard() {
-  const revenue = sales.reduce((a,s) => a + Number(s.total), 0);
-  const cost = sales.reduce((a,s) => { const p = products.find(x => x.id === s.productId); return a + (p ? Number(p.costPrice||0) * Number(s.quantity) : 0); }, 0);
-  document.getElementById('dash-revenue').textContent = '฿' + revenue.toLocaleString();
-  document.getElementById('dash-profit').textContent = '฿' + (revenue - cost).toLocaleString();
-  document.getElementById('dash-cost').textContent = '฿' + cost.toLocaleString();
-  document.getElementById('dash-units').textContent = sales.length + ' รายการ';
+// Month dropdown lists only months that have sales, newest first.
+function fillMonthSelect() {
+  const sel = document.getElementById('sales-month');
+  const keep = sel.value;
+  const months = [...new Set(sales.map(s => bkkMonth(s.saleDate)).filter(Boolean))].sort().reverse();
+  sel.innerHTML = '<option value="">ทุกเดือน</option>' + months.map(m => `<option value="${m}">${monthLabel(m)}</option>`).join('');
+  if (months.includes(keep)) sel.value = keep;
+}
+
+function applySalesFilters() {
+  const q = document.getElementById('sales-search').value.trim().toLowerCase();
+  const month = document.getElementById('sales-month').value;
+  const list = sales
+    .filter(s => !month || bkkMonth(s.saleDate) === month)
+    .filter(s => !q || [s.productName, s.soldBy, s.note].some(v => String(v || '').toLowerCase().includes(q)))
+    .sort((a, b) => new Date(b.saleDate) - new Date(a.saleDate));
+  renderSales(list);
+}
+
+function renderSales(list) {
+  const c = document.getElementById('sales-container');
+  const total = list.reduce((t, s) => t + Number(s.total || 0), 0);
+  document.getElementById('sales-summary').textContent = list.length ? `${list.length} รายการ · รวม ${money(total)}` : '';
+  if (!sales.length) { c.innerHTML = '<div class="empty">ยังไม่มีการขาย</div>'; return; }
+  if (!list.length) { c.innerHTML = '<div class="empty">ไม่พบรายการ</div>'; return; }
+  c.innerHTML = list.map(s => {
+    const p = products.find(x => x.id === s.productId);
+    const thumb = p && p.imageUrl ? `<img src="${esc(imgSrc(p.imageUrl))}" data-full="${esc(p.imageUrl)}" loading="lazy" decoding="async" onerror="imgRetry(this)">` : '👗';
+    return `<div class="sale-item">
+      <div class="sale-thumb">${thumb}</div>
+      <div class="sale-info">
+        <div class="sale-name">${esc(s.productName)}</div>
+        <div class="sale-meta">${bkkDate(s.saleDate)} · ${esc(s.soldBy)}</div>
+        ${s.note ? `<div class="sale-note">📝 ${esc(s.note)}</div>` : ''}
+        <span class="pay-tag ${payClass[s.paymentMethod]||'pay-cash'}">${esc(payLabel[s.paymentMethod]||s.paymentMethod)}</span>
+      </div>
+      <div class="sale-amount">${money(s.total)}</div>
+    </div>`;
+  }).join('');
+}
+
+// Excel export: uses the selected month only (search box is ignored), oldest first.
+let _xlsxPromise = null;
+function loadXlsx() {
+  if (window.XLSX) return Promise.resolve();
+  if (!_xlsxPromise) _xlsxPromise = new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload = res; s.onerror = () => { _xlsxPromise = null; rej(); };
+    document.head.appendChild(s);
+  });
+  return _xlsxPromise;
+}
+
+async function exportSales() {
+  const month = document.getElementById('sales-month').value;
+  const list = sales.filter(s => !month || bkkMonth(s.saleDate) === month)
+    .sort((a, b) => new Date(a.saleDate) - new Date(b.saleDate));
+  if (!list.length) { showToast('ไม่มีข้อมูลให้ export'); return; }
+  const btn = document.getElementById('export-btn');
+  btn.disabled = true; btn.textContent = 'กำลังสร้าง...';
+  try {
+    await loadXlsx();
+    const rows = list.map(s => ({
+      'Date': bkkDate(s.saleDate),
+      'Product': s.productName || '',
+      'Quantity': Number(s.quantity) || 1,
+      'Sell Price': Number(s.sellPrice) || 0,
+      'Total': Number(s.total) || 0,
+      'Payment': payLabel[s.paymentMethod] || s.paymentMethod || '',
+      'Sold by': s.soldBy || '',
+      'Note': s.note || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{wch:12},{wch:30},{wch:9},{wch:11},{wch:11},{wch:10},{wch:14},{wch:30}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sales');
+    XLSX.writeFile(wb, `chudpak_sales_${month || 'all'}.xlsx`);
+  } catch(e) { showToast('Export ไม่สำเร็จ ลองใหม่อีกครั้ง'); }
+  btn.disabled = false; btn.textContent = '⬇ Excel';
+}
+
+// ---- Dashboard ----
+// Cost per sale: match by product id first, then by name (for old rows).
+function costLookup() {
+  const byId = {}, byName = {};
+  products.forEach(p => { byId[p.id] = Number(p.costPrice) || 0; byName[p.name] = Number(p.costPrice) || 0; });
+  return s => (s.productId in byId) ? byId[s.productId] : (s.productName in byName ? byName[s.productName] : null);
+}
+
+let revRange = 3;
+function setRevRange(n, btn) {
+  revRange = n;
+  document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRevenueChart();
+}
+
+function renderRevenueChart() {
+  const byMonth = {};
+  sales.forEach(s => { const k = bkkMonth(s.saleDate); if (k) byMonth[k] = (byMonth[k] || 0) + Number(s.total || 0); });
+  const now = bkkDate(new Date());
+  let y = Number(now.slice(0, 4)), m = Number(now.slice(5, 7));
+  const keys = [];
+  for (let i = 0; i < revRange; i++) {
+    keys.unshift(`${y}-${String(m).padStart(2, '0')}`);
+    m--; if (m === 0) { m = 12; y--; }
+  }
+  const max = Math.max(1, ...keys.map(k => byMonth[k] || 0));
+  const sum = keys.reduce((t, k) => t + (byMonth[k] || 0), 0);
+  document.getElementById('rev-chart').innerHTML = keys.map(k => {
+    const v = byMonth[k] || 0;
+    return `<div class="bar-row"><span class="bar-label">${monthLabel(k)}</span><div class="bar-track"><div class="bar-fill" style="width:${(v / max * 100).toFixed(1)}%"></div></div><span class="bar-val">${money(v)}</span></div>`;
+  }).join('') + `<div class="chart-total">รวม ${revRange} เดือน: <b>${money(sum)}</b> · เฉลี่ย ${money(sum / revRange)}/เดือน</div>`;
+}
+
+async function loadDashboard() {
+  try { await loadAll(); } catch(e) { showToast('โหลดไม่ได้'); return; }
+  const revenue = sales.reduce((a, s) => a + Number(s.total || 0), 0);
+  const costOf = costLookup();
+  let cogs = 0, missing = 0, units = 0;
+  sales.forEach(s => {
+    const q = Number(s.quantity) || 1;
+    units += q;
+    const c = costOf(s);
+    if (c === null || c === 0) missing++;
+    cogs += (c || 0) * q;
+  });
+  const gp = revenue - cogs;
+  document.getElementById('dash-revenue').textContent = money(revenue);
+  document.getElementById('dash-profit').textContent = money(gp);
+  document.getElementById('dash-margin').textContent = revenue ? (gp / revenue * 100).toFixed(1) + '%' : '—';
+  document.getElementById('dash-margin-sub').textContent = missing ? `${missing} รายการไม่มีราคาทุน` : '';
+  document.getElementById('dash-cost').textContent = money(cogs);
+  document.getElementById('dash-units').textContent = `${sales.length} รายการ`;
+  document.getElementById('dash-soldout').textContent = products.filter(p => Number(p.quantity) <= 0).length;
+  renderRevenueChart();
   const pc = {};
-  sales.forEach(s => { pc[s.paymentMethod] = (pc[s.paymentMethod]||0) + 1; });
-  const payLabel = { cash:'Cash', card:'Card', scan:'Scan/QR', alipay:'Alipay' };
-  document.getElementById('pay-breakdown').innerHTML = '<div style="font-weight:600;margin-bottom:10px;">วิธีชำระเงิน</div>' + Object.entries(pc).map(([k,v]) => `<div style="display:flex;justify-content:space-between;padding:12px 14px;background:var(--white);border-radius:10px;margin-bottom:8px;box-shadow:var(--shadow);"><span>${payLabel[k]||k}</span><span style="font-weight:600;">${v} ครั้ง</span></div>`).join('');
+  sales.forEach(s => { pc[s.paymentMethod] = (pc[s.paymentMethod] || 0) + 1; });
+  document.getElementById('pay-breakdown').innerHTML = '<div style="font-weight:600;margin-bottom:10px;">วิธีชำระเงิน</div>' + Object.entries(pc).map(([k,v]) => `<div style="display:flex;justify-content:space-between;padding:12px 14px;background:var(--white);border-radius:10px;margin-bottom:8px;box-shadow:var(--shadow);"><span>${esc(payLabel[k]||k)}</span><span style="font-weight:600;">${v} ครั้ง</span></div>`).join('');
 }
 
 function openAddModal() {
@@ -475,7 +714,7 @@ async function saveProduct() {
       showToast('✅ เพิ่มสินค้าแล้ว');
     }
     closeProductModal();
-    loadProducts();
+    refreshCurrent();
   } catch(e) { showToast('เกิดข้อผิดพลาด'); }
   btn.disabled = false; btn.textContent = 'บันทึกสินค้า';
 }
@@ -484,7 +723,7 @@ async function confirmDelete(id) {
   if (!confirm('ลบสินค้านี้?')) return;
   await api('deleteProduct', { id });
   showToast('ลบแล้ว');
-  loadProducts();
+  refreshCurrent();
 }
 
 async function deleteProduct() {
@@ -492,7 +731,7 @@ async function deleteProduct() {
   await api('deleteProduct', { id: editingId });
   closeProductModal();
   showToast('ลบแล้ว');
-  loadProducts();
+  refreshCurrent();
 }
 
 function showToast(msg) {
