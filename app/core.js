@@ -33,7 +33,8 @@
   function normalize(d) {
     const products = (d.products || []).filter(p => p && p.id !== '' && p.id != null).map(p => ({
       ...p, id: String(p.id), name: String(p.name || '').trim(), size: String(p.size || '').trim(),
-      costPrice: num(p.costPrice), sellPrice: num(p.sellPrice), quantity: num(p.quantity), imageUrl: String(p.imageUrl || '')
+      costPrice: num(p.costPrice), sellPrice: num(p.sellPrice), quantity: num(p.quantity), imageUrl: String(p.imageUrl || ''),
+      archived: !(p.archived === '' || p.archived == null || p.archived === false)
     }));
     const sales = (d.sales || []).filter(s => s && s.id !== '' && s.id != null).map(s => ({
       ...s, id: String(s.id), productId: String(s.productId == null ? '' : s.productId), productName: String(s.productName || '').trim(),
@@ -47,12 +48,13 @@
   const demoData = shop => { if (!demoCache[shop]) demoCache[shop] = normalize(window.makeDemoData(shop)); return demoCache[shop]; };
   const lock = { fails: 0, until: 0, level: 0 };
   const Demo = {
-    id: 'demo', canWrite: true, usesPin: true,
+    id: 'demo',
+    canWrite() { return true; },
     async load(shop) { return demoData(shop); },
     reset(shop) { delete demoCache[shop]; },
     // Mirrors the planned server rule: 5 wrong PINs in a row pause sign-in for
     // everyone (15 min, then 1 h, then 24 h). Phones already signed in keep working.
-    async login(pin) {
+    async login(shop, pin) {
       const now = Date.now();
       if (now < lock.until) return { locked: Math.ceil((lock.until - now) / 60000) };
       const role = { '111111': 'staff', '222222': 'owner' }[pin];
@@ -66,8 +68,9 @@
     },
     async addSale(shop, { productId, quantity, paymentMethod, soldBy, note }) {
       const d = demoData(shop);
-      const p = d.products.find(x => x.id === productId);
+      const p = d.products.find(x => x.id === productId && !x.archived);
       if (!p) throw new Error('That product no longer exists.');
+      if (isTestText(note) && !isTestProduct(p)) throw new Error('Test sales must use a [TEST] product so real stock isn\u2019t changed.');
       const q = Math.floor(num(quantity));
       if (q < 1) throw new Error('Enter a quantity of 1 or more.');
       if (q > p.quantity) throw new Error('Only ' + p.quantity + ' left on the shelf.');
@@ -99,45 +102,124 @@
       return p;
     },
     async deleteProduct(shop, id) {
+      const p = demoData(shop).products.find(x => x.id === id);
+      if (p) p.archived = true; // hidden, like the live script: old sales keep their cost
+    },
+    async saveSettings() { return { success: true }; },
+    async signOutAll() { return { success: true }; },
+    async previewTestData(shop) {
       const d = demoData(shop);
-      d.products = d.products.filter(x => x.id !== id);
+      return { products: d.products.filter(isTestProduct).map(p => ({ id: p.id, name: p.name })), sales: d.sales.filter(isTestSale).map(s => ({ id: s.id, name: s.productName, total: s.total })) };
+    },
+    async clearTestData(shop, ids) {
+      const d = demoData(shop);
+      const ps = new Set(ids.productIds || []), ss = new Set(ids.saleIds || []);
+      const before = [d.products.length, d.sales.length];
+      d.products = d.products.filter(p => !(ps.has(p.id) && isTestProduct(p)));
+      d.sales = d.sales.filter(s => !(ss.has(s.id) && isTestSale(s)));
+      return { success: true, removed: { products: before[0] - d.products.length, sales: before[1] - d.sales.length } };
     }
   };
 
-  // ---------- live sheet source (read-only) ----------
+  // ---------- live sheet source ----------
+  // Current script (v5): read-only preview, only get* requests are ever sent.
+  // New script (v6): PIN sign-in, then saving is allowed for the actions below.
   const SCRIPT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/;
   const READ_ONLY = 'This is a read-only preview of the live sheet, so saving is turned off. It switches on once the new PIN-protected script is installed.';
+  const V6_WRITES = ['login', 'addSale', 'addStock', 'addProduct', 'updateProduct', 'archiveProduct', 'uploadImage', 'saveSettings', 'signOutAll', 'previewTestData', 'clearTestData'];
+  // Local testing only: on localhost, ?local=8787 points "Live sheet" at the pretend
+  // sheet from apps-script/local-sheet.js instead of Google.
+  const LOCAL = (() => {
+    try {
+      const port = new URL(location.href).searchParams.get('local');
+      return /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /^\d{2,5}$/.test(port || '') ? 'http://localhost:' + port : '';
+    } catch (e) { return ''; }
+  })();
+  const passKey = shop => 'b125_pass_' + shop + (LOCAL ? '_local' : '');
   const Sheet = {
-    id: 'sheet', canWrite: false, usesPin: false,
-    link(shop) { const v = (lsGet(CFG.shops[shop].apiKey) || '').trim(); return SCRIPT_RE.test(v) ? v : ''; },
+    id: 'sheet', info: {},
+    local: LOCAL,
+    link(shop) { if (LOCAL) return LOCAL; const v = (lsGet(CFG.shops[shop].apiKey) || '').trim(); return SCRIPT_RE.test(v) ? v : ''; },
     setLink(shop, url) {
       url = String(url || '').trim();
       if (!SCRIPT_RE.test(url)) throw new Error('That doesn’t look like a script link. It should start with https://script.google.com/macros/s/ and end with /exec.');
       if (!lsSet(CFG.shops[shop].apiKey, url)) throw new Error('This browser won’t save the link (private mode?).');
+      delete this.info[shop];
     },
-    forget(shop) { lsDel(CFG.shops[shop].apiKey); },
-    async call(shop, action) {
-      // Hard guard: only read actions ever leave this file.
-      if (!/^get[A-Z]/.test(action)) throw new Error(READ_ONLY);
+    forget(shop) { if (!LOCAL) lsDel(CFG.shops[shop].apiKey); lsDel(passKey(shop)); delete this.info[shop]; },
+    isV6(shop) { return !!(this.info[shop] && this.info[shop].version >= 6); },
+    pass(shop) {
+      try { const p = JSON.parse(lsGet(passKey(shop)) || 'null'); if (p && p.token && new Date(p.expires) > new Date()) return p; } catch (e) { /* ignore */ }
+      return null;
+    },
+    dropPass(shop) { lsDel(passKey(shop)); },
+    canWrite(shop) { return this.isV6(shop) && !!this.pass(shop); },
+    async call(shop, action, payload) {
+      const isRead = /^get[A-Z]/.test(action);
+      // Hard guard: nothing but reads leaves this file unless the script is v6.
+      if (!isRead && !(this.isV6(shop) && V6_WRITES.includes(action))) throw new Error(READ_ONLY);
       const url = this.link(shop);
       if (!url) throw new Error('No sheet is connected for this shop yet.');
+      const pass = this.pass(shop);
+      const body = Object.assign({}, payload || {}, { action });
+      if (pass && action !== 'login') body.token = pass.token;
       // text/plain POST, same as the old pages: no CORS preflight.
-      const r = await fetch(url, { method: 'POST', body: JSON.stringify({ action }) });
+      const r = await fetch(url, { method: 'POST', body: JSON.stringify(body) });
       if (!r.ok) throw new Error('The sheet didn’t answer (HTTP ' + r.status + ').');
       const j = await r.json();
-      if (j && j.error) throw new Error(j.error);
+      if (j && j.error) {
+        if (j.code === 'auth') this.dropPass(shop);
+        const e = new Error(j.error); e.code = j.code || ''; throw e;
+      }
       return j;
     },
+    // Asks which script is installed. An older script answers "Unknown action".
+    async detect(shop) {
+      if (this.info[shop]) return this.info[shop];
+      try { const r = await this.call(shop, 'getVersion'); this.info[shop] = { version: Number(r.version) || 5, pinsSet: !!r.pinsSet }; }
+      catch (e) { if (/Unknown action/i.test(e.message)) this.info[shop] = { version: 5 }; else throw e; }
+      return this.info[shop];
+    },
+    async login(shop, pin) {
+      await this.detect(shop);
+      if (!this.isV6(shop)) throw new Error(READ_ONLY);
+      const r = await this.call(shop, 'login', { pin });
+      if (r.token) lsSet(passKey(shop), JSON.stringify({ token: r.token, role: r.role, expires: r.expires }));
+      return r;
+    },
     async load(shop) {
+      await this.detect(shop);
+      if (this.isV6(shop)) {
+        const r = await this.call(shop, 'getAll');
+        return Object.assign(normalize(r), { settings: r.settings || null, role: r.role });
+      }
       try {
         const r = await this.call(shop, 'getAll');
         if (r && Array.isArray(r.products) && Array.isArray(r.sales)) return normalize(r);
       } catch (e) { if (/connected|preview/.test(e.message)) throw e; /* older script: fall back */ }
       const [p, s] = await Promise.all([this.call(shop, 'getProducts'), this.call(shop, 'getSales')]);
       return normalize({ products: p.products, sales: s.sales });
-    }
+    },
+    async addSale(shop, f) { const r = await this.call(shop, 'addSale', f); return r.sale; },
+    async addStock(shop, f) { return this.call(shop, 'addStock', f); },
+    async addProduct(shop, f) {
+      let imageUrl = f.imageUrl || '';
+      const m = /^data:(image\/[a-z]+);base64,(.+)$/.exec(imageUrl);
+      if (m) imageUrl = (await this.call(shop, 'uploadImage', { mimeType: m[1], imageData: m[2] })).imageUrl;
+      return (await this.call(shop, 'addProduct', Object.assign({}, f, { imageUrl }))).product;
+    },
+    async updateProduct(shop, id, f) { return this.call(shop, 'updateProduct', Object.assign({ id }, f)); },
+    async deleteProduct(shop, id) { return this.call(shop, 'archiveProduct', { id }); },
+    async saveSettings(shop, f) { return this.call(shop, 'saveSettings', f); },
+    async signOutAll(shop) { const r = await this.call(shop, 'signOutAll'); this.dropPass(shop); return r; },
+    async previewTestData(shop) { return this.call(shop, 'previewTestData'); },
+    async clearTestData(shop, ids) { return this.call(shop, 'clearTestData', ids); }
   };
-  ['addSale', 'addStock', 'addProduct', 'updateProduct', 'deleteProduct', 'login'].forEach(m => { Sheet[m] = async () => { throw new Error(READ_ONLY); }; });
 
-  window.ShopCore = { CFG, num, bkkDate, label, lsGet, lsSet, lsDel, payKind, PAY_LABEL, PAY_ORDER, normalize, Backends: { demo: Demo, sheet: Sheet }, READ_ONLY };
+  // [TEST] rows: left out of every total, and clearable from Settings.
+  const isTestText = v => /^\s*\[test\]/i.test(String(v || ''));
+  const isTestProduct = p => isTestText(p.name);
+  const isTestSale = s => isTestText(s.productName) || isTestText(s.note);
+
+  window.ShopCore = { CFG, num, bkkDate, label, lsGet, lsSet, lsDel, payKind, PAY_LABEL, PAY_ORDER, normalize, isTestProduct, isTestSale, Backends: { demo: Demo, sheet: Sheet }, READ_ONLY };
 })();

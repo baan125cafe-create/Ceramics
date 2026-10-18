@@ -2,7 +2,7 @@
 // Data comes from core.js: the demo source, or the live sheet in read-only preview.
 (function () {
   'use strict';
-  const { CFG, num, bkkDate, label, lsGet, lsSet, payKind, PAY_LABEL, PAY_ORDER, Backends, READ_ONLY } = window.ShopCore;
+  const { CFG, num, bkkDate, label, lsGet, lsSet, payKind, PAY_LABEL, PAY_ORDER, Backends, READ_ONLY, isTestProduct, isTestSale } = window.ShopCore;
 
   // ---------- tiny helpers ----------
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -71,6 +71,11 @@
   const backend = () => Backends[S.mode];
   const live = () => S.mode === 'sheet';
   const data = () => S.cache[S.mode + ':' + S.shop] || { products: [], sales: [] };
+  // Products people work with. Removed (archived) ones stay in the data only for costing old sales.
+  const shown = () => data().products.filter(p => !p.archived);
+  const readOnly = () => !backend().canWrite(S.shop);
+  const isV6 = () => live() && Backends.sheet.isV6(S.shop);
+  const testBadge = p => isTestProduct(p) ? '<span class="pill test">TEST</span> ' : '';
 
   // Per-shop settings, kept on this device until the new script stores them in the sheet.
   const settingsKey = () => 'b125_settings_' + S.shop;
@@ -79,11 +84,17 @@
       let saved = {};
       try { saved = JSON.parse(lsGet(settingsKey()) || '{}') || {}; } catch (e) { saved = {}; }
       const c = SHOPS[S.shop];
-      S._settings = { shop: S.shop, lowAt: num(saved.lowAt) || c.lowAtDefault, staff: Array.isArray(saved.staff) ? saved.staff : c.staffDefault.slice() };
+      const srv = isV6() && data().settings ? data().settings : {};
+      S._settings = { shop: S.shop, lowAt: num(srv.lowAt) || num(saved.lowAt) || c.lowAtDefault, staff: Array.isArray(srv.staff) ? srv.staff : (Array.isArray(saved.staff) ? saved.staff : c.staffDefault.slice()) };
     }
     return S._settings;
   }
-  const saveSettings = () => { const s = settings(); lsSet(settingsKey(), JSON.stringify({ lowAt: s.lowAt, staff: s.staff })); };
+  // On the new script the staff list and "running low" level live in the sheet (owner only).
+  const saveSettings = () => {
+    const s = settings();
+    lsSet(settingsKey(), JSON.stringify({ lowAt: s.lowAt, staff: s.staff }));
+    if (isV6() && S.role === 'owner') backend().saveSettings(S.shop, { lowAt: s.lowAt, staff: s.staff }).catch(e => toast(e.message));
+  };
   const staffNames = () => settings().staff;
   const status = p => num(p.quantity) <= 0 ? 'out' : (num(p.quantity) <= settings().lowAt ? 'low' : 'ok');
 
@@ -110,7 +121,9 @@
     try {
       S.cache[key] = await backend().load(S.shop);
       S.loadedAt[key] = Date.now();
+      S._settings = null;
     } catch (e) {
+      if (e.code === 'auth') { S.loading = false; S.pinErr = e.message; return signOut(); }
       S.loadError = e.message || 'Couldn’t load the data.';
     }
     S.loading = false;
@@ -152,7 +165,7 @@
   function stats(key) {
     const R = periodRange(key);
     const idx = productIndex();
-    const sales = data().sales;
+    const sales = data().sales.filter(s => !isTestSale(s));
     const cur = sales.filter(s => inRange(s, R.from, R.to));
     const prev = R.pFrom ? sales.filter(s => inRange(s, R.pFrom, R.pTo) && (R.hourCap == null || saleHour(s) <= R.hourCap)) : [];
     const revenue = cur.reduce((a, s) => a + s.total, 0);
@@ -187,7 +200,7 @@
       cur.forEach(s => { const b = map[saleDay(s)]; if (b) b.v += s.total; });
     }
 
-    const prods = data().products;
+    const prods = shown().filter(p => !isTestProduct(p));
     let atCost = 0, atSell = 0, potential = 0, noCostInStock = 0;
     prods.forEach(p => {
       const q = Math.max(0, p.quantity);
@@ -234,6 +247,7 @@
       spellings, badDate, orphan, noCostSale,
       noCost: products.filter(p => p.costPrice <= 0).length,
       negative: products.filter(p => p.quantity < 0).length,
+      tests: products.filter(isTestProduct).length + sales.filter(isTestSale).length,
       nSales: sales.length, nProducts: products.length
     };
   }
@@ -241,9 +255,11 @@
   // ---------- rendering ----------
   const app = $('#app');
   function strip() {
-    return live()
+    if (!live()) return `<div class="demo-strip">Demo mode · sample data only · nothing here touches the real shop sheet</div>`;
+    if (Backends.sheet.local) return `<div class="demo-strip">Local test · pretend sheet on this computer · nothing here touches Google</div>`;
+    return readOnly()
       ? `<div class="demo-strip live">Live sheet · read-only preview · saving is off until the new PIN-protected script is installed</div>`
-      : `<div class="demo-strip">Demo mode · sample data only · nothing here touches the real shop sheet</div>`;
+      : `<div class="demo-strip real">Live sheet · changes save to the real ${esc(SHOPS[S.shop].name)} sheet · to try things out, start a product name with [TEST]</div>`;
   }
   function render() {
     if (!S.role) return renderSignIn();
@@ -321,13 +337,24 @@
           <div class="pin-err" role="alert">${esc(S.connectErr)}</div>
           <button type="submit" class="btn primary block">Connect (read-only)</button>
         </form>`;
-    } else if (S.mode === 'sheet') {
+    } else if (S.mode === 'sheet' && !Backends.sheet.info[S.shop]) {
+      body = `<div class="connect"><p class="signin-hint" style="max-width:none">Checking the sheet…</p></div>`;
+      Backends.sheet.detect(S.shop).then(() => { if (!S.role) renderSignIn(); }, e => { S.connectErr = e.message; Backends.sheet.info[S.shop] = { version: 0, error: e.message }; if (!S.role) renderSignIn(); });
+    } else if (S.mode === 'sheet' && Backends.sheet.info[S.shop].error) {
+      body = `<div class="connect"><div class="pin-err" role="alert">${esc(Backends.sheet.info[S.shop].error)}</div>
+          <button type="button" class="btn block" data-act="retry-detect">Try again</button>
+          <button type="button" class="link-btn" data-act="change-link" style="color:var(--brand-dark-muted)">Use a different link</button></div>`;
+    } else if (S.mode === 'sheet' && Backends.sheet.isV6(S.shop) && !Backends.sheet.info[S.shop].pinsSet) {
+      body = `<div class="connect"><p class="signin-hint" style="max-width:none">The new script is installed, but no PINs are set yet. In the Google Sheet, open the <b>Shop app</b> menu and choose <b>Set owner PIN</b> and <b>Set staff PIN</b>, then come back here.</p>
+          <button type="button" class="btn block" data-act="retry-detect">I’ve set them</button></div>`;
+    } else if (S.mode === 'sheet' && !Backends.sheet.isV6(S.shop)) {
       body = `<div class="connect">
           <p class="signin-hint" style="max-width:none">Connected to the live sheet. This preview only reads data: nothing can be saved, so the shop’s numbers can’t change. PIN sign-in arrives with the new script.</p>
           <div class="grid-2"><button type="button" class="btn primary block" data-preview="owner">View as owner</button><button type="button" class="btn block preview-staff" data-preview="staff">View as staff</button></div>
           <button type="button" class="link-btn" data-act="change-link" style="color:var(--brand-dark-muted)">Use a different link</button>
         </div>`;
     } else {
+      const isLive = S.mode === 'sheet';
       const dots = Array.from({ length: L }, (_, i) => `<span class="${i < S.pin.length ? 'on' : ''}"></span>`).join('');
       const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map(k =>
         `<button type="button" class="${k === 'C' || k === '⌫' ? 'ghost' : ''}" data-key="${k}" aria-label="${k === '⌫' ? 'Delete' : (k === 'C' ? 'Clear' : k)}">${k === 'C' ? 'Clear' : k}</button>`).join('');
@@ -335,7 +362,8 @@
           <div class="pin-dots" role="img" aria-label="${S.pin.length} of ${L} digits entered">${dots}</div>
           <div class="pin-err" role="alert">${esc(S.pinErr)}</div>
           <div class="keypad">${keys}</div>
-          <p class="signin-hint">Sample PINs: 111111 for staff, 222222 for owner. Five wrong PINs pause sign-in.</p>`;
+          <p class="signin-hint">${isLive ? 'Enter the owner or staff PIN for this shop. Five wrong PINs pause sign-in for everyone.' : 'Sample PINs: 111111 for staff, 222222 for owner. Five wrong PINs pause sign-in.'}</p>
+          ${isLive ? '<button type="button" class="link-btn" data-act="change-link" style="color:var(--brand-dark-muted)">Use a different link</button>' : ''}`;
     }
     app.innerHTML = `
       <div class="signin">
@@ -352,7 +380,9 @@
   function enter(role) {
     S.role = role; sess.set('b125_role', role); sess.set('b125_shop', S.shop); sess.set('b125_mode', S.mode);
     S.route = null;
-    loadData(false);
+    // Each role gets its own view of the data (staff never receive costs), so always reload.
+    delete S.cache[S.mode + ':' + S.shop];
+    loadData(true);
     render();
   }
   async function pressKey(k) {
@@ -362,7 +392,8 @@
     else if (S.pin.length < L) S.pin += k;
     S.pinErr = '';
     if (S.pin.length === L) {
-      const r = await backend().login(S.pin);
+      let r;
+      try { r = await backend().login(S.shop, S.pin); } catch (e) { S.pin = ''; S.pinErr = e.message; return renderSignIn(); }
       S.pin = '';
       if (r.role) return enter(r.role);
       if (r.locked) S.pinErr = `Too many wrong PINs. Sign-in is paused for ${r.locked >= 60 ? Math.round(r.locked / 60) + (r.locked >= 120 ? ' hours' : ' hour') : r.locked + ' minutes'}.`;
@@ -460,7 +491,7 @@
 
   // ----- owner stock -----
   function viewOwnerStock() {
-    const prods = data().products;
+    const prods = shown();
     const inStock = prods.filter(p => p.quantity > 0).length;
     return `
       <div class="page-head">
@@ -474,7 +505,7 @@
       <ul class="list" id="stock-list"></ul>`;
   }
   function fillOwnerStock() {
-    const prods = data().products;
+    const prods = shown();
     const c = { all: prods.length, ok: 0, low: 0, out: 0, nocost: 0 };
     prods.forEach(p => { c[status(p)]++; if (p.costPrice <= 0) c.nocost++; });
     const defs = [['all', 'All'], ['ok', 'In stock'], ['low', 'Running low'], ['out', 'Sold out'], ['nocost', 'No cost price']];
@@ -490,7 +521,7 @@
       return `<li class="row">
         ${thumb(p)}
         <button type="button" class="row-body" data-edit="${esc(p.id)}" aria-label="Edit ${esc(label(p))}">
-          <span class="row-title">${esc(label(p))}</span>
+          <span class="row-title">${testBadge(p)}${esc(label(p))}</span>
           <span class="row-sub">${money(p.sellPrice)} · cost ${p.costPrice > 0 ? money(p.costPrice) : '—'} · ${margin}</span>
           <span class="stockbar"><span class="track"><i class="fill-${st}" style="width:${Math.max(0, Math.min(100, p.quantity / maxQ * 100)).toFixed(0)}%"></i></span><b class="tone-${st}">${st === 'out' ? 'Sold out' : p.quantity + ' left'}</b></span>
         </button>
@@ -507,7 +538,7 @@
 
   // ----- staff stock -----
   function viewStaffStock() {
-    const prods = data().products;
+    const prods = shown();
     const nIn = prods.filter(p => p.quantity > 0).length;
     return `
       <div class="page-head"><div><h1>Stock</h1><div class="muted small">Tap an item to sell it</div></div></div>
@@ -527,13 +558,13 @@
     const st = status(p);
     const badge = st === 'out' ? '<span class="badge out">Sold out</span>' : `<span class="badge ${st === 'low' ? 'low' : ''}">${p.quantity} left</span>`;
     const sub = st === 'out' ? (last ? 'Last sold ' + dayLabel(last) : 'Sold out') : 'Tap to sell';
-    const inner = `<div class="pic" style="background:${swatch(p.name)}">${I[SHOPS[S.shop].icon]}${photo(p, 400)}${badge}</div><div class="meta"><b>${esc(label(p))}</b><span class="price">${money(p.sellPrice)}</span><span class="muted small">${sub}</span></div>`;
+    const inner = `<div class="pic" style="background:${swatch(p.name)}">${I[SHOPS[S.shop].icon]}${photo(p, 400)}${badge}</div><div class="meta"><b>${testBadge(p)}${esc(label(p))}</b><span class="price">${money(p.sellPrice)}</span><span class="muted small">${sub}</span></div>`;
     return st === 'out' ? `<div class="tile out">${inner}</div>` : `<button type="button" class="tile" data-sell="${esc(p.id)}" aria-label="Sell ${esc(label(p))}">${inner}</button>`;
   }
   function fillStaffStock() {
     const q = S.ui.stockQ.trim().toLowerCase();
     const last = lastSold();
-    const list = data().products.filter(p => (S.ui.staffTab === 'in' ? p.quantity > 0 : p.quantity <= 0) && label(p).toLowerCase().includes(q))
+    const list = shown().filter(p => (S.ui.staffTab === 'in' ? p.quantity > 0 : p.quantity <= 0) && label(p).toLowerCase().includes(q))
       .sort((a, b) => S.ui.staffTab === 'out' ? String(last[b.id] || '').localeCompare(String(last[a.id] || '')) : label(a).localeCompare(label(b)));
     $('#staff-gallery').innerHTML = list.length ? list.map(p => tile(p, last[p.id])).join('') : `<p class="empty">${q ? 'No product matches that search.' : (S.ui.staffTab === 'in' ? 'Nothing in stock.' : 'Nothing is sold out.')}</p>`;
   }
@@ -547,7 +578,7 @@
   }
   function fillSell() {
     const q = S.ui.sellQ.trim().toLowerCase();
-    const list = data().products.filter(p => p.quantity > 0 && label(p).toLowerCase().includes(q)).sort((a, b) => label(a).localeCompare(label(b)));
+    const list = shown().filter(p => p.quantity > 0 && label(p).toLowerCase().includes(q)).sort((a, b) => label(a).localeCompare(label(b)));
     $('#sell-gallery').innerHTML = list.length ? list.map(p => tile(p)).join('') : '<p class="empty">No product matches that search.</p>';
   }
 
@@ -570,7 +601,7 @@
         <label class="field" for="add-qty">Quantity<input id="add-qty" name="quantity" type="number" min="0" inputmode="numeric" placeholder="10" required></label>
         <div class="muted small" id="add-margin" aria-live="polite"></div>
         <div class="pin-err" id="add-err" role="alert" style="color:var(--bad)"></div>
-        <button type="submit" class="btn primary block">${live() ? 'Saving is off in this preview' : 'Add product'}</button>
+        <button type="submit" class="btn primary block">${readOnly() ? 'Saving is off in this preview' : 'Add product'}</button>
       </form>`;
   }
 
@@ -601,14 +632,16 @@
   }
   function fillSales() {
     const { R, rows } = salesRows();
-    const total = rows.reduce((a, s) => a + s.total, 0);
-    const items = rows.reduce((a, s) => a + (s.quantity || 1), 0);
-    $('#sales-sum').textContent = `${R.label} · ${plural(rows.length, 'sale')} · ${money(total)}`;
-    const shown = rows.slice(0, 300);
+    const real = rows.filter(s => !isTestSale(s));
+    const total = real.reduce((a, s) => a + s.total, 0);
+    const items = real.reduce((a, s) => a + (s.quantity || 1), 0);
+    const tests = rows.length - real.length;
+    $('#sales-sum').textContent = `${R.label} · ${plural(real.length, 'sale')} · ${money(total)}${tests ? ` · ${plural(tests, 'test sale')} not counted` : ''}`;
+    const page = rows.slice(0, 300);
     $('#sales-table').innerHTML = rows.length ? `
       <table>
         <thead><tr><th>Date</th><th>Product</th><th class="num">Qty</th><th class="num">Total</th><th>Paid</th><th>Staff</th><th>Note</th></tr></thead>
-        <tbody>${shown.map(s => { const k = payKind(s.paymentMethod); return `<tr><td>${dayLabel(saleDay(s))}</td><td>${esc(s.productName)}</td><td class="num">${s.quantity || 1}</td><td class="num">${money(s.total)}</td><td><span class="pill pay-${k}">${esc(k === 'other' ? String(s.paymentMethod) : PAY_LABEL[k])}</span></td><td>${esc(cleanName(s.soldBy))}</td><td class="muted">${esc(s.note || '')}</td></tr>`; }).join('')}</tbody>
+        <tbody>${page.map(s => { const k = payKind(s.paymentMethod); return `<tr><td>${dayLabel(saleDay(s))}</td><td>${isTestSale(s) ? '<span class="pill test">TEST</span> ' : ''}${esc(s.productName)}</td><td class="num">${s.quantity || 1}</td><td class="num">${money(s.total)}</td><td><span class="pill pay-${k}">${esc(k === 'other' ? String(s.paymentMethod) : PAY_LABEL[k])}</span></td><td>${esc(cleanName(s.soldBy))}</td><td class="muted">${esc(s.note || '')}</td></tr>`; }).join('')}</tbody>
         <tfoot><tr><td colspan="2">${rows.length > 300 ? `Showing newest 300 of ${rows.length.toLocaleString('en-US')}` : 'Total'}</td><td class="num">${items.toLocaleString('en-US')}</td><td class="num">${money(total)}</td><td colspan="3"></td></tr></tfoot>
       </table>` : '<p class="empty">No sales match.</p>';
   }
@@ -638,7 +671,8 @@
       <div class="settings-grid">
         <section class="card">
           <h2>Access</h2>
-          ${live() ? '<p class="muted small" style="margin:0">PINs, lockouts and "sign all out" start working with the new PIN-protected script.</p>' : ''}
+          ${live() && readOnly() ? '<p class="muted small" style="margin:0">PINs, lockouts and "sign all out" start working with the new PIN-protected script.</p>' : ''}
+          ${isV6() ? '<p class="muted small" style="margin:0">PINs are changed inside the Google Sheet (Shop app menu), so they never pass through this app.</p>' : ''}
           <div>
             <div class="set-row"><div><b>Owner PIN</b><small>Everything, including this page</small></div><button type="button" class="btn" data-act="pin-later">Change</button></div>
             <div class="set-row"><div><b>Staff PIN</b><small>Stock, add product and sell</small></div><button type="button" class="btn" data-act="pin-later">Change</button></div>
@@ -647,7 +681,7 @@
         </section>
         <section class="card">
           <h2>Staff names</h2>
-          <p class="muted small" style="margin:0">Staff tap their name when they sell, so reports don’t split one person into "Nok" and "nok". Saved on this device for now.</p>
+          <p class="muted small" style="margin:0">Staff tap their name when they sell, so reports don’t split one person into "Nok" and "nok". ${isV6() ? 'Saved in the sheet, so every phone gets the same list.' : 'Saved on this device for now.'}</p>
           <div class="chips">${names.length ? names.map((n, i) => `<span class="name-chip">${esc(n)}<button type="button" data-rmstaff="${i}" aria-label="Remove ${esc(n)}">${I.close}</button></span>`).join('') : '<span class="muted small">No names yet.</span>'}</div>
           <form id="staff-form" class="toolbar" novalidate>
             <label class="field" for="staff-new" style="flex:1 1 180px">Add a name<input id="staff-new" placeholder="e.g. Ploy" maxlength="30"></label>
@@ -674,8 +708,13 @@
             <li>${plural(chk.noCost, 'product')} without a cost price; ${plural(chk.noCostSale, 'sale')} can’t be costed.</li>
             ${chk.orphan ? `<li>${plural(chk.orphan, 'sale')} ${chk.orphan === 1 ? 'points' : 'point'} to a product that no longer exists (still counted in revenue).</li>` : ''}
             ${chk.badDate ? `<li>${plural(chk.badDate, 'sale')} ${chk.badDate === 1 ? 'has a date the app can’t read, so it doesn’t' : 'have a date the app can’t read, so they don’t'} show in any period.</li>` : ''}
+            ${chk.tests ? `<li>${plural(chk.tests, 'test row')} ([TEST]) are left out of every total.</li>` : ''}
             ${chk.negative ? `<li>${plural(chk.negative, 'product')} ${chk.negative === 1 ? 'shows' : 'show'} a stock count below zero.</li>` : ''}
           </ul>
+        </section>
+        <section class="card">
+          <h2>Test data</h2>
+          ${testCard()}
         </section>
         <section class="card">
           <h2>Appearance</h2>
@@ -688,6 +727,14 @@
             : '<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div><button type="button" class="btn" data-act="reset">Reset</button></div>'}
         </section>
       </div>`;
+  }
+
+  function testCard() {
+    const tp = data().products.filter(isTestProduct), ts = data().sales.filter(isTestSale);
+    const names = tp.map(p => label(p)).slice(0, 6);
+    return `<p class="muted small" style="margin:0">To try things out, add a product whose name starts with <b>[TEST]</b> and sell it. Test rows are left out of every total and report.</p>
+      <div class="set-row"><div><b>${plural(tp.length, 'test product')} · ${plural(ts.length, 'test sale')}</b><small>${names.length ? esc(names.join(', ')) + (tp.length > names.length ? '…' : '') : 'Nothing to clear.'}</small></div>
+      <button type="button" class="btn danger" data-act="clear-tests" ${!tp.length && !ts.length || readOnly() || (live() && S.role !== 'owner') ? 'disabled' : ''}>Clear…</button></div>`;
   }
 
   // ---------- sheets (sell, restock, edit) ----------
@@ -717,7 +764,7 @@
   }
   function closeSheet() { const r = $('#sheet-root'); if (r) r.innerHTML = ''; }
   const sheetHead = (title, sub, p) => `<div class="grab" aria-hidden="true"></div><div class="sheet-head">${p ? thumb(p) : ''}<div style="flex:1 1 auto;min-width:0"><h2>${esc(title)}</h2>${sub ? `<div class="muted small">${sub}</div>` : ''}</div><button type="button" class="icon-btn" data-act="close" aria-label="Close">${I.close}</button></div>`;
-  const previewNote = () => live() ? `<p class="preview-note">${esc(READ_ONLY)}</p>` : '';
+  const previewNote = () => readOnly() ? `<p class="preview-note">${esc(READ_ONLY)}</p>` : '';
 
   // ---------- confirm step for anything destructive ----------
   let pendingConfirm = null;
@@ -738,19 +785,23 @@
 
   // Every save goes through here: one place that refuses writes in preview.
   async function write(fn, onDone, errSel) {
-    if (!backend().canWrite) { toast('Saving is off in this read-only preview.'); return; }
-    try { const r = await fn(); onDone(r); } catch (e) { const el = errSel && $(errSel); if (el) el.textContent = e.message; else toast(e.message); }
+    if (readOnly()) { toast('Saving is off in this read-only preview.'); return; }
+    if (write.busy) return;
+    write.busy = true;
+    try { const r = await fn(); onDone(r); if (live()) loadData(true); }
+    catch (e) { if (e.code === 'auth') { toast(e.message); return signOut(); } const el = errSel && $(errSel); if (el) el.textContent = e.message; else toast(e.message); }
+    finally { write.busy = false; }
   }
 
   let sell = null;
   function openSell(productId) {
-    if (!data().products.some(p => p.quantity > 0)) return toast('Nothing is in stock to sell.');
+    if (!shown().some(p => p.quantity > 0)) return toast('Nothing is in stock to sell.');
     const names = staffNames();
     sell = { productId: productId || '', qty: 1, pay: CFG.payments[0].id, who: names.includes(S.lastSeller) ? S.lastSeller : (names.length === 1 ? names[0] : ''), note: '' };
     drawSell();
   }
   function drawSell() {
-    const prods = data().products;
+    const prods = shown();
     const p = prods.find(x => x.id === sell.productId);
     const inStock = prods.filter(x => x.quantity > 0).sort((a, b) => label(a).localeCompare(label(b)));
     const max = p ? p.quantity : 1;
@@ -770,7 +821,7 @@
       <div class="pin-err" id="sell-err" role="alert" style="color:var(--bad)"></div>
       <div class="sum-row"><span class="muted">${sell.qty} × ${p ? money(p.sellPrice) : '—'} · ${esc(payLabel)}</span><b>${money(total)}</b></div>
       ${previewNote()}
-      <button type="button" class="btn primary block" data-act="save-sale" ${live() ? 'disabled' : ''}>${live() ? 'Saving is off in this preview' : 'Save sale · ' + money(total)}</button>`, 'Record a sale');
+      <button type="button" class="btn primary block" data-act="save-sale" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off in this preview' : 'Save sale · ' + money(total)}</button>`, 'Record a sale');
   }
   function saveSale() {
     const err = m => { $('#sell-err').textContent = m; };
@@ -782,13 +833,13 @@
 
   let restock = null;
   function openRestock(id) {
-    const p = data().products.find(x => x.id === id);
+    const p = shown().find(x => x.id === id);
     if (!p) return;
     restock = { id, add: 6, cost: p.costPrice > 0 ? p.costPrice : '' };
     drawRestock();
   }
   function drawRestock() {
-    const p = data().products.find(x => x.id === restock.id);
+    const p = shown().find(x => x.id === restock.id);
     openSheet(`
       ${sheetHead(label(p), `${p.quantity} on the shelf · sells for ${money(p.sellPrice)}`, p)}
       <div class="panel" style="align-items:center">
@@ -800,7 +851,7 @@
       <label class="field" for="restock-cost">Cost per piece for this batch (฿)<input id="restock-cost" type="number" min="0" inputmode="decimal" value="${esc(restock.cost)}" placeholder="Cost price"><span class="hint">Saved with each sale from now on, so profit stays right if the price changes later.</span></label>
       <div class="pin-err" id="restock-err" role="alert" style="color:var(--bad)"></div>
       ${previewNote()}
-      <button type="button" class="btn primary block" data-act="save-restock" ${live() ? 'disabled' : ''}>${live() ? 'Saving is off in this preview' : `Add ${restock.add} to stock`}</button>
+      <button type="button" class="btn primary block" data-act="save-restock" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off in this preview' : `Add ${restock.add} to stock`}</button>
       <p class="muted small" style="margin:0;text-align:center">This adds to the current count. It never overwrites it, so a sale made at the same moment isn’t lost.</p>`, 'Add stock');
   }
   function saveRestock() {
@@ -810,7 +861,7 @@
 
   let editing = null;
   function openEdit(id) {
-    const p = data().products.find(x => x.id === id);
+    const p = shown().find(x => x.id === id);
     if (!p) return;
     editing = { id };
     openSheet(`
@@ -825,8 +876,8 @@
         <label class="field" for="edit-qty">Quantity on the shelf<input id="edit-qty" name="quantity" type="number" min="0" value="${p.quantity}"><span class="hint">Use this to correct a count after a stock-take. For new deliveries, use + Stock.</span></label>
         <div class="pin-err" id="edit-err" role="alert" style="color:var(--bad)"></div>
         ${previewNote()}
-        <button type="submit" class="btn primary block" ${live() ? 'disabled' : ''}>${live() ? 'Saving is off in this preview' : 'Save changes'}</button>
-        <button type="button" class="btn danger" data-act="delete-product" ${live() ? 'disabled' : ''}>Delete product…</button>
+        <button type="submit" class="btn primary block" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off in this preview' : 'Save changes'}</button>
+        <button type="button" class="btn danger" data-act="delete-product" ${readOnly() ? 'disabled' : ''}>Remove product…</button>
       </form>`, 'Edit product');
   }
 
@@ -843,7 +894,7 @@
     render();
     window.scrollTo(0, 0);
   }
-  function signOut() { S.role = null; sess.del('b125_role'); closeSheet(); render(); }
+  function signOut() { if (live()) { Backends.sheet.dropPass(S.shop); delete S.cache['sheet:' + S.shop]; } S.role = null; sess.del('b125_role'); closeSheet(); render(); }
   const noteNow = () => { const n = $('#sell-note'); if (n && sell) sell.note = n.value; };
 
   document.addEventListener('click', e => {
@@ -889,7 +940,23 @@
       case 'save-restock': return saveRestock();
       case 'refresh': return loadData(true).then(() => toast('Data refreshed'));
       case 'export': return exportCsv();
-      case 'pin-later': return toast('PINs are set up with the new script.');
+      case 'pin-later': return toast(isV6() ? 'Change PINs in the Google Sheet: Shop app menu → Set owner PIN / Set staff PIN.' : 'PINs are set up with the new script.');
+      case 'retry-detect': delete Backends.sheet.info[S.shop]; S.connectErr = ''; return renderSignIn();
+      case 'clear-tests': return (async () => {
+        let t;
+        try { t = await backend().previewTestData(S.shop); } catch (e) { return toast(e.message); }
+        const n = t.products.length + t.sales.length;
+        if (!n) return toast('There is no test data to clear.');
+        const list = t.products.map(p => p.name).concat(t.sales.map(x => 'sale: ' + x.name)).slice(0, 8);
+        return confirmAction({
+          title: `Clear ${plural(n, 'test row')}?`,
+          body: `This permanently removes ${plural(t.products.length, 'product')} and ${plural(t.sales.length, 'sale')} whose name starts with [TEST]: ${list.join('; ')}${n > list.length ? '…' : ''}`,
+          keep: 'Only [TEST] rows are removed. Real products and sales are never touched.',
+          confirm: 'Clear test data',
+          onConfirm: () => write(() => backend().clearTestData(S.shop, { productIds: t.products.map(p => p.id), saleIds: t.sales.map(x => x.id) }),
+            r => { renderView(); toast(`Removed ${plural(r.removed.products, 'product')} and ${plural(r.removed.sales, 'sale')}`); if (!live()) loadData(true); })
+        });
+      })();
       case 'signout-now': return signOut();
       case 'change-link': return confirmAction({
         title: 'Use a different script link?', danger: false,
@@ -907,7 +974,7 @@
       });
       case 'signout': return confirmAction({
         title: 'Sign out of this phone?', danger: false,
-        body: live() ? 'You’ll come back to the sign-in screen.' : `You'll need the ${S.role === 'owner' ? 'owner' : 'staff'} PIN to get back in.`,
+        body: live() && readOnly() ? 'You’ll come back to the sign-in screen.' : `You'll need the ${S.role === 'owner' ? 'owner' : 'staff'} PIN to get back in.`,
         keep: 'Nothing in the shop data changes.',
         confirm: 'Sign out',
         onConfirm: signOut
@@ -917,7 +984,10 @@
         body: 'All staff phones and this one will need the PIN again. Anyone mid-sale has to sign back in first.',
         keep: 'Sales and stock are not affected. Use this after a staff member leaves or a PIN is shared.',
         confirm: 'Sign all out',
-        onConfirm: () => toast(live() ? 'This starts working with the new script.' : 'In the live app, every phone is now signed out.')
+        onConfirm: () => {
+          if (isV6()) return write(() => backend().signOutAll(S.shop), () => { toast('Every phone is signed out.'); signOut(); });
+          toast(live() ? 'This starts working with the new script.' : 'In the live app, every phone is now signed out.');
+        }
       });
       case 'reset': return confirmAction({
         title: 'Reset the sample data?',
@@ -927,15 +997,15 @@
         onConfirm: () => { Backends.demo.reset(S.shop); delete S.cache['demo:' + S.shop]; loadData(true).then(() => toast('Sample data reset.')); }
       });
       case 'delete-product': {
-        const p = data().products.find(x => x.id === editing.id);
+        const p = shown().find(x => x.id === editing.id);
         if (!p) return;
         const sold = data().sales.filter(x => x.productId === p.id).length;
         return confirmAction({
-          title: `Delete ${label(p)}?`,
-          body: `It disappears from the stock list${p.quantity > 0 ? `, including the ${p.quantity} still counted on the shelf` : ''}. This can't be undone.`,
-          keep: sold ? `Its ${plural(sold, 'past sale')} stay in your sales list and reports. If it's only sold out, you can keep it and restock later instead.` : 'It has no sales yet.',
-          confirm: 'Delete product',
-          onConfirm: () => write(() => backend().deleteProduct(S.shop, p.id), () => { closeSheet(); renderView(); toast(`${label(p)} deleted`); })
+          title: `Remove ${label(p)}?`,
+          body: `It disappears from the stock lists${p.quantity > 0 ? `, including the ${p.quantity} still counted on the shelf` : ''}. Its row stays in the sheet, marked as removed.`,
+          keep: sold ? `Its ${plural(sold, 'past sale')} stay in your sales list and reports, with their cost. If it's only sold out, you can keep it and restock later instead.` : 'It has no sales yet.',
+          confirm: 'Remove product',
+          onConfirm: () => write(() => backend().deleteProduct(S.shop, p.id), () => { closeSheet(); renderView(); toast(`${label(p)} removed`); })
         });
       }
     }
@@ -1001,6 +1071,10 @@
     }
   });
 
+  if (!S.role && S.mode === 'sheet') {
+    const pass = Backends.sheet.pass(S.shop);
+    if (pass) { S.role = pass.role; sess.set('b125_role', pass.role); }
+  }
   if (S.role) loadData(false);
   render();
 })();
