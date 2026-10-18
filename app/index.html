@@ -113,7 +113,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 .content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 
 /* Controls */
-.btn { min-height: 44px; padding: 0 16px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn { min-height: 44px; padding: 0 16px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 .btn { white-space: nowrap; }
 .btn svg, .side-sell svg { width: 18px; height: 18px; flex: none; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
@@ -301,6 +301,8 @@ tfoot td { font-weight: 700; border-bottom: 0; }
 .connect input { min-height: 50px; padding: 0 14px; border-radius: var(--r-md); border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: var(--brand-dark-ink); font-size: 15px; }
 .connect input::placeholder { color: var(--brand-dark-muted); }
 .connect .btn.block { min-height: 50px; font-size: 15px; }
+.connect .btn:not(.primary) { background: transparent; color: var(--brand-dark-ink); border: 1.5px solid rgba(251,246,238,0.55); }
+.connect .btn:not(.primary):hover { background: rgba(251,246,238,0.1); }
 .connect .pin-err { text-align: center; }
 .preview-note { margin: 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--good-bg); color: var(--good); font-size: 13px; }
 .check-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
@@ -315,6 +317,8 @@ tfoot td { font-weight: 700; border-bottom: 0; }
 .connect input { min-height: 50px; padding: 0 14px; border-radius: var(--r-md); border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: var(--brand-dark-ink); font-size: 15px; }
 .connect input::placeholder { color: var(--brand-dark-muted); }
 .connect .btn.block { min-height: 50px; font-size: 15px; }
+.connect .btn:not(.primary) { background: transparent; color: var(--brand-dark-ink); border: 1.5px solid rgba(251,246,238,0.55); }
+.connect .btn:not(.primary):hover { background: rgba(251,246,238,0.1); }
 .connect .pin-err { text-align: center; }
 .preview-note { margin: 0; padding: 10px 12px; border-radius: var(--r-sm); background: var(--good-bg); color: var(--good); font-size: 13px; }
 .check-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
