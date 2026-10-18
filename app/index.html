@@ -14,8 +14,9 @@
 :root {
   --bg: #F6F0E6; --surface: #FFFFFF; --surface-2: #F8F3EC; --line: #E6DACB;
   --ink: #22160D; --muted: #6B5B4F; --accent: #A8532A; --accent-ink: #FFFFFF; --accent-soft: #F3E1D3;
-  --hero: #22160D; --hero-ink: #FBF6EE; --hero-muted: #D9C6B2; --hero-line: #4A3626; --hero-edge: transparent; --seg-on: #FFFFFF;
-  --bar: #8C6A51; --bar-hi: #F0A46B;
+  --hero: #FFFFFF; --hero-ink: #22160D; --hero-muted: #6B5B4F; --hero-line: #EADFD2; --hero-edge: transparent; --seg-on: #FFFFFF;
+  --bar: #E2C3A8; --bar-hi: #A8532A; --delta-flat: #F2EADF;
+  --brand-dark: #22160D; --brand-dark-ink: #FBF6EE; --brand-dark-muted: #D9C6B2; --pin-on: #F0A46B;
   --good: #2F6B45; --good-bg: #E5F1E8; --warn: #8A4B00; --warn-bg: #FDF3E4; --bad: #9B2F1F; --bad-bg: #FBEDEA;
   --cash: #C2662D; --card: #2E5E8C;
   --scrim: rgba(34, 22, 13, 0.45); --shadow: 0 1px 2px rgba(34,22,13,0.06), 0 6px 20px rgba(34,22,13,0.06);
@@ -27,7 +28,7 @@
   --bg: #17110C; --surface: #221A13; --surface-2: #2A2119; --line: #3B2F25;
   --ink: #F3EADF; --muted: #B9A898; --accent: #E5915E; --accent-ink: #1A0F08; --accent-soft: #3A2618;
   --hero: #32251A; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A; --hero-edge: #5A4432; --seg-on: #4A3A2C;
-  --bar: #A88466; --bar-hi: #F0A46B;
+  --bar: #A88466; --bar-hi: #F0A46B; --delta-flat: rgba(255,255,255,0.12);
   --good: #82C89D; --good-bg: #1D3226; --warn: #F0B45E; --warn-bg: #3A2A12; --bad: #F2907E; --bad-bg: #3B1E19;
   --cash: #E5915E; --card: #7FAAD8;
   --scrim: rgba(0, 0, 0, 0.6); --shadow: 0 1px 2px rgba(0,0,0,0.3);
@@ -37,7 +38,7 @@
   --bg: #17110C; --surface: #221A13; --surface-2: #2A2119; --line: #3B2F25;
   --ink: #F3EADF; --muted: #B9A898; --accent: #E5915E; --accent-ink: #1A0F08; --accent-soft: #3A2618;
   --hero: #32251A; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A; --hero-edge: #5A4432; --seg-on: #4A3A2C;
-  --bar: #A88466; --bar-hi: #F0A46B;
+  --bar: #A88466; --bar-hi: #F0A46B; --delta-flat: rgba(255,255,255,0.12);
   --good: #82C89D; --good-bg: #1D3226; --warn: #F0B45E; --warn-bg: #3A2A12; --bad: #F2907E; --bad-bg: #3B1E19;
   --cash: #E5915E; --card: #7FAAD8;
   --scrim: rgba(0, 0, 0, 0.6); --shadow: 0 1px 2px rgba(0,0,0,0.3);
@@ -61,23 +62,23 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 .demo-strip { background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 600; text-align: center; padding-block: 6px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 
 /* Sign-in */
-.signin { min-height: 100%; background: var(--hero); color: var(--hero-ink); display: flex; align-items: center; justify-content: center; padding-block: 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.signin { min-height: 100%; background: var(--brand-dark); color: var(--brand-dark-ink); display: flex; align-items: center; justify-content: center; padding-block: 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .signin-box { width: 100%; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
 .signin h1 { font-family: var(--font-display); font-size: 42px; line-height: 1; }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; border-radius: var(--r-md); background: var(--surface-2); width: 100%; }
 .seg button { min-height: 40px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; }
 .seg button[aria-pressed="true"] { background: var(--seg-on); color: var(--ink); box-shadow: var(--shadow); }
 .signin .seg { background: rgba(255,255,255,0.08); }
-.signin .seg button { color: var(--hero-muted); }
-.signin .seg button[aria-pressed="true"] { background: var(--hero-ink); color: #22160D; }
+.signin .seg button { color: var(--brand-dark-muted); }
+.signin .seg button[aria-pressed="true"] { background: var(--brand-dark-ink); color: var(--brand-dark); }
 .pin-dots { display: flex; gap: 16px; }
-.pin-dots span { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--hero-muted); }
-.pin-dots span.on { background: var(--bar-hi); border-color: var(--bar-hi); }
-.pin-err { min-height: 20px; color: var(--bar-hi); font-size: 14px; font-weight: 600; }
+.pin-dots span { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--brand-dark-muted); }
+.pin-dots span.on { background: var(--pin-on); border-color: var(--pin-on); }
+.pin-err { min-height: 20px; color: var(--pin-on); font-size: 14px; font-weight: 600; }
 .keypad { display: grid; grid-template-columns: repeat(3, 72px); gap: 14px 24px; }
-.keypad button { width: 72px; height: 72px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.08); color: var(--hero-ink); font-size: 26px; }
+.keypad button { width: 72px; height: 72px; border-radius: 50%; border: 0; background: rgba(255,255,255,0.08); color: var(--brand-dark-ink); font-size: 26px; }
 .keypad button.ghost { background: transparent; font-size: 16px; }
-.signin-hint { font-size: 12px; color: var(--hero-muted); text-align: center; max-width: 300px; }
+.signin-hint { font-size: 12px; color: var(--brand-dark-muted); text-align: center; max-width: 300px; }
 
 /* App shell */
 .shell { min-height: 100%; display: flex; flex-direction: column; }
@@ -158,7 +159,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 .delta { padding: 5px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; align-self: flex-start; }
 .delta.up { background: #CFE8D6; color: #1F5233; }
 .delta.down { background: #F6D5CD; color: #7E2414; }
-.delta.flat { background: rgba(255,255,255,0.12); color: var(--hero-ink); }
+.delta.flat { background: var(--delta-flat); color: var(--hero-ink); }
 .chart { position: relative; height: 150px; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 6px; }
 .chart .yaxis { position: relative; font-size: 10px; color: var(--hero-muted); }
 .chart .yaxis span { position: absolute; right: 0; transform: translateY(-50%); }

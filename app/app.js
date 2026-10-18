@@ -55,7 +55,23 @@
     cache: {},
     load(shop) { if (!this.cache[shop]) this.cache[shop] = window.makeDemoData(shop); return this.cache[shop]; },
     reset(shop) { delete this.cache[shop]; return this.load(shop); },
-    login(pin) { return { '1111': 'staff', '2222': 'owner' }[pin] || null; },
+    // Mirrors the live script: 5 wrong PINs in a row pause sign-in for everyone,
+    // 15 minutes the first time, then 1 hour, then 24 hours. Phones that are
+    // already signed in keep working.
+    fails: 0, lockedUntil: 0, lockLevel: 0,
+    login(pin) {
+      const now = Date.now();
+      if (now < this.lockedUntil) return { locked: Math.ceil((this.lockedUntil - now) / 60000) };
+      const role = { '1111': 'staff', '2222': 'owner' }[pin];
+      if (role) { this.fails = 0; this.lockLevel = 0; return { role }; }
+      this.fails++;
+      if (this.fails >= 5) {
+        const mins = [15, 60, 1440][Math.min(this.lockLevel, 2)];
+        this.lockLevel++; this.fails = 0; this.lockedUntil = now + mins * 60000;
+        return { locked: mins };
+      }
+      return { left: 5 - this.fails };
+    },
     addSale(shop, { productId, quantity, paymentMethod, soldBy, note }) {
       const d = this.load(shop);
       const p = d.products.find(x => x.id === productId);
@@ -283,11 +299,11 @@
           <div class="seg" role="group" aria-label="Shop">
             ${Object.entries(SHOPS).map(([k, s]) => `<button type="button" data-shop="${k}" aria-pressed="${S.shop === k}">${esc(s.name)}</button>`).join('')}
           </div>
-          <div style="color:var(--hero-muted);font-size:14px">Enter your PIN</div>
+          <div style="color:var(--brand-dark-muted);font-size:14px">Enter your PIN</div>
           <div class="pin-dots" role="img" aria-label="${S.pin.length} of 4 digits entered">${dots}</div>
           <div class="pin-err" role="alert">${esc(S.pinErr)}</div>
           <div class="keypad">${keys}</div>
-          <p class="signin-hint">Demo PINs: 1111 for staff, 2222 for owner. In the live app the shop's script checks the PIN, so it never sits in this page.</p>
+          <p class="signin-hint">Demo PINs: 1111 for staff, 2222 for owner. In the live app the shop's script checks the PIN, so it never sits in this page. Five wrong PINs pause sign-in.</p>
         </div>
       </div>`;
   }
@@ -297,10 +313,11 @@
     else if (S.pin.length < 4) S.pin += k;
     S.pinErr = '';
     if (S.pin.length === 4) {
-      const role = DemoBackend.login(S.pin);
+      const r = DemoBackend.login(S.pin);
       S.pin = '';
-      if (role) { S.role = role; store.set('b125_role', role); store.set('b125_shop', S.shop); S.route = null; return render(); }
-      S.pinErr = 'That PIN didn’t match. Try again.';
+      if (r.role) { S.role = r.role; store.set('b125_role', r.role); store.set('b125_shop', S.shop); S.route = null; return render(); }
+      if (r.locked) S.pinErr = `Too many wrong PINs. Sign-in is paused for ${r.locked >= 60 ? Math.round(r.locked / 60) + (r.locked >= 120 ? ' hours' : ' hour') : r.locked + ' minutes'}.`;
+      else S.pinErr = `That PIN didn’t match. ${r.left} ${r.left === 1 ? 'try' : 'tries'} left before sign-in pauses.`;
     }
     renderSignIn();
   }
