@@ -108,6 +108,13 @@
     ui: { period: '30d', stockFilter: 'all', stockQ: '', staffTab: 'in', sellQ: '', salesPeriod: '30d', salesPay: 'all', salesQ: '' },
     lastSeller: store.get('b125_seller') || ''
   };
+  // Appearance: 'auto' follows the device; 'light'/'dark' are saved on this device only.
+  const THEME_KEY = 'b125_theme';
+  const getTheme = () => { try { const t = localStorage.getItem(THEME_KEY); return t === 'light' || t === 'dark' ? t : 'auto'; } catch (e) { return 'auto'; } };
+  function setTheme(t) {
+    try { if (t === 'auto') localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); } catch (e) { /* storage blocked: still apply for this visit */ }
+    if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
+  }
   const data = () => DemoBackend.load(S.shop);
   const staffNames = () => { if (!S.settings.staff) S.settings.staff = data().staff.slice(); return S.settings.staff; };
   const status = p => num(p.quantity) <= 0 ? 'out' : (num(p.quantity) <= S.settings.lowAt ? 'low' : 'ok');
@@ -574,6 +581,11 @@
           </div>
         </section>
         <section class="card">
+          <h2>Appearance</h2>
+          <div class="set-row"><div><b>Light or dark</b><small>Automatic follows this phone or laptop. Saved on this device only.</small></div></div>
+          <div class="seg" role="group" aria-label="Appearance" style="max-width:360px">${[['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([k, t]) => `<button type="button" data-themepick="${k}" aria-pressed="${getTheme() === k}">${t}</button>`).join('')}</div>
+        </section>
+        <section class="card">
           <h2>Demo</h2>
           <div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div><button type="button" class="btn" data-act="reset">Reset</button></div>
         </section>
@@ -715,6 +727,7 @@
     if (d.who) { sell.who = d.who; sell.note = ($('#sell-note') || {}).value; return drawSell(); }
     if (d.add) { restock.add = Math.max(1, restock.add + Number(d.add)); restock.cost = $('#restock-cost').value; return drawRestock(); }
     if (d.addset) { restock.add = Number(d.addset); restock.cost = $('#restock-cost').value; return drawRestock(); }
+    if (d.themepick) { setTheme(d.themepick); return renderView(); }
     if (d.rmstaff) { staffNames().splice(Number(d.rmstaff), 1); return renderView(); }
     switch (d.act) {
       case 'sell': return openSell('');

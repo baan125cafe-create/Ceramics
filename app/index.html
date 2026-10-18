@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Baan 125 Shop</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<script>try{var t=localStorage.getItem("b125_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
@@ -13,7 +14,7 @@
 :root {
   --bg: #F6F0E6; --surface: #FFFFFF; --surface-2: #F8F3EC; --line: #E6DACB;
   --ink: #22160D; --muted: #6B5B4F; --accent: #A8532A; --accent-ink: #FFFFFF; --accent-soft: #F3E1D3;
-  --hero: #22160D; --hero-ink: #FBF6EE; --hero-muted: #D9C6B2; --hero-line: #4A3626;
+  --hero: #22160D; --hero-ink: #FBF6EE; --hero-muted: #D9C6B2; --hero-line: #4A3626; --hero-edge: transparent; --seg-on: #FFFFFF;
   --bar: #8C6A51; --bar-hi: #F0A46B;
   --good: #2F6B45; --good-bg: #E5F1E8; --warn: #8A4B00; --warn-bg: #FDF3E4; --bad: #9B2F1F; --bad-bg: #FBEDEA;
   --cash: #C2662D; --card: #2E5E8C;
@@ -25,7 +26,7 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #17110C; --surface: #221A13; --surface-2: #2A2119; --line: #3B2F25;
   --ink: #F3EADF; --muted: #B9A898; --accent: #E5915E; --accent-ink: #1A0F08; --accent-soft: #3A2618;
-  --hero: #2E2218; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A;
+  --hero: #32251A; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A; --hero-edge: #5A4432; --seg-on: #4A3A2C;
   --bar: #A88466; --bar-hi: #F0A46B;
   --good: #82C89D; --good-bg: #1D3226; --warn: #F0B45E; --warn-bg: #3A2A12; --bad: #F2907E; --bad-bg: #3B1E19;
   --cash: #E5915E; --card: #7FAAD8;
@@ -35,7 +36,7 @@
 :root[data-theme="dark"] {
   --bg: #17110C; --surface: #221A13; --surface-2: #2A2119; --line: #3B2F25;
   --ink: #F3EADF; --muted: #B9A898; --accent: #E5915E; --accent-ink: #1A0F08; --accent-soft: #3A2618;
-  --hero: #2E2218; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A;
+  --hero: #32251A; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A; --hero-edge: #5A4432; --seg-on: #4A3A2C;
   --bar: #A88466; --bar-hi: #F0A46B;
   --good: #82C89D; --good-bg: #1D3226; --warn: #F0B45E; --warn-bg: #3A2A12; --bad: #F2907E; --bad-bg: #3B1E19;
   --cash: #E5915E; --card: #7FAAD8;
@@ -65,7 +66,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 .signin h1 { font-family: var(--font-display); font-size: 42px; line-height: 1; }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; padding: 4px; border-radius: var(--r-md); background: var(--surface-2); width: 100%; }
 .seg button { min-height: 40px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; }
-.seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+.seg button[aria-pressed="true"] { background: var(--seg-on); color: var(--ink); box-shadow: var(--shadow); }
 .signin .seg { background: rgba(255,255,255,0.08); }
 .signin .seg button { color: var(--hero-muted); }
 .signin .seg button[aria-pressed="true"] { background: var(--hero-ink); color: #22160D; }
@@ -150,7 +151,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 .kpi .sub { font-size: 11px; color: var(--muted); }
 .meter { height: 6px; background: var(--surface-2); border-radius: 3px; overflow: hidden; }
 .meter > i { display: block; height: 100%; background: var(--good); }
-.hero { background: var(--hero); color: var(--hero-ink); border-radius: 22px; padding: 20px 18px 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.hero { background: var(--hero); border: 1px solid var(--hero-edge); color: var(--hero-ink); border-radius: 22px; padding: 20px 18px 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .hero .eyebrow { font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--hero-muted); }
 .hero .big { font-family: var(--font-display); font-size: 44px; line-height: 1; }
 .hero .vs { font-size: 12px; color: var(--hero-muted); }
