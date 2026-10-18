@@ -268,7 +268,7 @@
           ${sideLinks}
           <div class="side-foot">
             <button type="button" class="side-link" data-act="refresh">${I.refresh}Refresh data</button>
-            <span class="updated" style="padding:0 12px">${esc(updatedLabel())}</span>
+            <span class="updated" style="padding:0 12px 4px 44px">${esc(updatedLabel())}</span>
             <button type="button" class="side-link" data-act="signout">${I.out}Sign out</button>
           </div>
         </aside>
