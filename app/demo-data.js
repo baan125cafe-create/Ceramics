@@ -103,7 +103,8 @@
         const sale = {
           id: 'SALE-DEMO-' + (++n), productId: p.id, productName: p.name + (p.size ? ' · ' + p.size : ''),
           quantity: qty, sellPrice: p.sellPrice, total: qty * p.sellPrice,
-          paymentMethod: r() < 0.4 ? 'cash' : 'credit',
+          // Older rows use the old two-button labels (cash / credit) like the real sheet.
+          paymentMethod: d > 120 ? (r() < 0.4 ? 'cash' : 'credit') : (r() < 0.38 ? 'cash' : (r() < 0.55 ? 'card' : 'qr')),
           saleDate: dateStr, soldBy: variants[Math.floor(r() * variants.length)],
           note: r() < 0.06 ? 'Gift wrap' : '', createdAt
         };
