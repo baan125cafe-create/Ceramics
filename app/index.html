@@ -71,7 +71,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 .signin .seg { background: rgba(255,255,255,0.08); }
 .signin .seg button { color: var(--brand-dark-muted); }
 .signin .seg button[aria-pressed="true"] { background: var(--brand-dark-ink); color: var(--brand-dark); }
-.pin-dots { display: flex; gap: 16px; }
+.pin-dots { display: flex; gap: 14px; }
 .pin-dots span { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--brand-dark-muted); }
 .pin-dots span.on { background: var(--pin-on); border-color: var(--pin-on); }
 .pin-err { min-height: 20px; color: var(--pin-on); font-size: 14px; font-weight: 600; }
@@ -277,6 +277,17 @@ tfoot td { font-weight: 700; border-bottom: 0; }
 .sum-row { display: flex; justify-content: space-between; font-size: 14px; }
 .sum-row b { font-size: 18px; }
 
+.overlay.confirm { z-index: 70; align-items: center; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.confirm-box { max-width: 420px; border-radius: 22px; padding: 22px 20px 20px; gap: 12px; }
+.confirm-box h2 { font-family: var(--font-display); font-size: 22px; }
+.confirm-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--warn-bg); color: var(--warn); display: flex; align-items: center; justify-content: center; }
+.confirm-icon.danger { background: var(--bad-bg); color: var(--bad); }
+.confirm-icon svg { width: 20px; height: 20px; }
+.confirm-text p { margin: 0 0 6px; }
+.confirm-text .keep { color: var(--muted); font-size: 13px; }
+.confirm-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 6px; }
+.btn.danger-solid { background: var(--bad); color: var(--surface); border-color: var(--bad); }
+.sheet:focus { outline: none; }
 .toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; background: var(--ink); color: var(--bg); padding: 12px 18px; border-radius: 12px; font-size: 14px; font-weight: 600; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 @media (min-width: 900px) { .toast { bottom: 28px; } }
 </style>

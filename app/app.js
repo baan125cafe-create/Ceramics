@@ -62,7 +62,7 @@
     login(pin) {
       const now = Date.now();
       if (now < this.lockedUntil) return { locked: Math.ceil((this.lockedUntil - now) / 60000) };
-      const role = { '1111': 'staff', '2222': 'owner' }[pin];
+      const role = { '111111': 'staff', '222222': 'owner' }[pin];
       if (role) { this.fails = 0; this.lockLevel = 0; return { role }; }
       this.fails++;
       if (this.fails >= 5) {
@@ -269,7 +269,8 @@
         </div>
       </div>
       <nav class="bottom-nav" aria-label="Main">${bottom}</nav>
-      <div id="sheet-root"></div>`;
+      <div id="sheet-root"></div>
+      <div id="confirm-root"></div>`;
     renderView();
   }
 
@@ -289,7 +290,7 @@
 
   // ----- sign in -----
   function renderSignIn() {
-    const dots = [0, 1, 2, 3].map(i => `<span class="${i < S.pin.length ? 'on' : ''}"></span>`).join('');
+    const dots = [0, 1, 2, 3, 4, 5].map(i => `<span class="${i < S.pin.length ? 'on' : ''}"></span>`).join('');
     const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map(k =>
       `<button type="button" class="${k === 'C' || k === '⌫' ? 'ghost' : ''}" data-key="${k}" aria-label="${k === '⌫' ? 'Delete' : (k === 'C' ? 'Clear' : k)}">${k === 'C' ? 'Clear' : k}</button>`).join('');
     app.innerHTML = `
@@ -300,19 +301,19 @@
             ${Object.entries(SHOPS).map(([k, s]) => `<button type="button" data-shop="${k}" aria-pressed="${S.shop === k}">${esc(s.name)}</button>`).join('')}
           </div>
           <div style="color:var(--brand-dark-muted);font-size:14px">Enter your PIN</div>
-          <div class="pin-dots" role="img" aria-label="${S.pin.length} of 4 digits entered">${dots}</div>
+          <div class="pin-dots" role="img" aria-label="${S.pin.length} of 6 digits entered">${dots}</div>
           <div class="pin-err" role="alert">${esc(S.pinErr)}</div>
           <div class="keypad">${keys}</div>
-          <p class="signin-hint">Demo PINs: 1111 for staff, 2222 for owner. In the live app the shop's script checks the PIN, so it never sits in this page. Five wrong PINs pause sign-in.</p>
+          <p class="signin-hint">Demo PINs: 111111 for staff, 222222 for owner. In the live app the shop's script checks the PIN, so it never sits in this page. Five wrong PINs pause sign-in.</p>
         </div>
       </div>`;
   }
   function pressKey(k) {
     if (k === '⌫') S.pin = S.pin.slice(0, -1);
     else if (k === 'C') S.pin = '';
-    else if (S.pin.length < 4) S.pin += k;
+    else if (S.pin.length < 6) S.pin += k;
     S.pinErr = '';
-    if (S.pin.length === 4) {
+    if (S.pin.length === 6) {
       const r = DemoBackend.login(S.pin);
       S.pin = '';
       if (r.role) { S.role = r.role; store.set('b125_role', r.role); store.set('b125_shop', S.shop); S.route = null; return render(); }
@@ -570,7 +571,7 @@
           <div>
             <div class="set-row"><div><b>Owner PIN</b><small>Everything, including this page</small></div><button type="button" class="btn" data-act="demo-only">Change</button></div>
             <div class="set-row"><div><b>Staff PIN</b><small>Stock, add product and sell</small></div><button type="button" class="btn" data-act="demo-only">Change</button></div>
-            <div class="set-row"><div><b>Signed-in phones</b><small>Sign every phone out, for example after a staff change</small></div><button type="button" class="btn danger" data-act="demo-only">Sign all out</button></div>
+            <div class="set-row"><div><b>Signed-in phones</b><small>Sign every phone out, for example after a staff change</small></div><button type="button" class="btn danger" data-act="signout-all">Sign all out</button></div>
           </div>
         </section>
         <section class="card">
@@ -610,13 +611,50 @@
   }
 
   // ---------- sheets (sell, restock, edit) ----------
-  function openSheet(html, focusSel) {
+  // First open: focus the sheet itself (not a field), so phones don't pop up a
+  // picker or keyboard. Redraws (tapping +, Cash, a name…) swap the content in
+  // place and keep focus on the same control.
+  function openSheet(html, label) {
     const root = $('#sheet-root');
-    root.innerHTML = `<div class="overlay" data-scrim="1"><div class="sheet" role="dialog" aria-modal="true">${html}</div></div>`;
-    const f = focusSel ? $(focusSel, root) : $('.sheet button, .sheet input', root);
-    if (f) f.focus();
+    const existing = $('.sheet', root);
+    if (existing) {
+      const a = document.activeElement;
+      const key = a && existing.contains(a) ? keyOf(a) : null;
+      const top = existing.scrollTop;
+      existing.innerHTML = html;
+      existing.scrollTop = top;
+      const found = key && existing.querySelector(key);
+      const back = found && found.tagName !== 'SELECT' ? found : null; // never re-open a picker
+      (back || existing).focus({ preventScroll: true });
+      return;
+    }
+    root.innerHTML = `<div class="overlay" data-scrim="1"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(label || '')}" tabindex="-1">${html}</div></div>`;
+    $('.sheet', root).focus({ preventScroll: true });
+  }
+  function keyOf(el) {
+    if (el.id) return '#' + CSS.escape(el.id);
+    for (const k of ['qty', 'paywith', 'who', 'add', 'addset', 'act']) if (el.dataset[k] != null) return `[data-${k}="${CSS.escape(el.dataset[k])}"]`;
+    return null;
   }
   function closeSheet() { const r = $('#sheet-root'); if (r) r.innerHTML = ''; }
+
+  // ---------- confirm step for anything destructive ----------
+  // Says what will happen and what won't, so the owner knows the consequence.
+  let pendingConfirm = null;
+  function confirmAction({ title, body, keep, confirm, danger = true, onConfirm }) {
+    pendingConfirm = onConfirm;
+    const root = $('#confirm-root');
+    root.innerHTML = `<div class="overlay confirm" data-confirm-scrim="1"><div class="sheet confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body" tabindex="-1">
+      <div class="confirm-icon ${danger ? 'danger' : ''}" aria-hidden="true">${I.warn}</div>
+      <h2 id="confirm-title">${esc(title)}</h2>
+      <div id="confirm-body" class="confirm-text"><p>${esc(body)}</p>${keep ? `<p class="keep">${esc(keep)}</p>` : ''}</div>
+      <div class="confirm-actions">
+        <button type="button" class="btn" data-confirm="no">Cancel</button>
+        <button type="button" class="btn ${danger ? 'danger-solid' : 'dark'}" data-confirm="yes">${esc(confirm)}</button>
+      </div></div></div>`;
+    $('[data-confirm="no"]', root).focus();
+  }
+  function closeConfirm() { $('#confirm-root').innerHTML = ''; pendingConfirm = null; }
   const sheetHead = (title, sub, p) => `<div class="grab" aria-hidden="true"></div><div class="sheet-head">${p ? thumb(p) : ''}<div style="flex:1 1 auto;min-width:0"><h2>${esc(title)}</h2>${sub ? `<div class="muted small">${sub}</div>` : ''}</div><button type="button" class="icon-btn" data-act="close" aria-label="Close">${I.close}</button></div>`;
 
   let sell = null;
@@ -645,7 +683,7 @@
       <label class="field" for="sell-note">Note (optional)<textarea id="sell-note" rows="2" maxlength="300" placeholder="Discount, gift wrap, customer request">${esc(sell.note || '')}</textarea></label>
       <div class="pin-err" id="sell-err" role="alert" style="color:var(--bad)"></div>
       <div class="sum-row"><span class="muted">${sell.qty} × ${p ? money(p.sellPrice) : '—'} · ${sell.pay === 'cash' ? 'Cash' : 'Card / QR'}</span><b>${money(total)}</b></div>
-      <button type="button" class="btn primary block" data-act="save-sale">Save sale · ${money(total)}</button>`, '#sell-product');
+      <button type="button" class="btn primary block" data-act="save-sale">Save sale · ${money(total)}</button>`, 'Record a sale');
   }
   function saveSale() {
     const err = m => { $('#sell-err').textContent = m; };
@@ -705,8 +743,8 @@
         <label class="field" for="edit-qty">Quantity on the shelf<input id="edit-qty" name="quantity" type="number" min="0" value="${num(p.quantity)}"><span class="hint">Use this to correct a count after a stock-take. For new deliveries, use + Stock.</span></label>
         <div class="pin-err" id="edit-err" role="alert" style="color:var(--bad)"></div>
         <button type="submit" class="btn primary block">Save changes</button>
-        <button type="button" class="btn danger" data-act="delete-product" id="delete-btn">Delete product</button>
-      </form>`, '#edit-name');
+        <button type="button" class="btn danger" data-act="delete-product">Delete product…</button>
+      </form>`, 'Edit product');
   }
 
   // ---------- events ----------
@@ -724,8 +762,9 @@
   }
 
   document.addEventListener('click', e => {
-    const el = e.target.closest('button, [data-scrim]');
+    const el = e.target.closest('button, [data-scrim], [data-confirm-scrim]');
     if (!el) return;
+    if (el.dataset.confirmScrim && e.target === el) return closeConfirm();
     if (el.dataset.scrim && e.target === el) return closeSheet();
     const d = el.dataset;
     if (d.key) return pressKey(d.key);
@@ -745,19 +784,57 @@
     if (d.add) { restock.add = Math.max(1, restock.add + Number(d.add)); restock.cost = $('#restock-cost').value; return drawRestock(); }
     if (d.addset) { restock.add = Number(d.addset); restock.cost = $('#restock-cost').value; return drawRestock(); }
     if (d.themepick) { setTheme(d.themepick); return renderView(); }
-    if (d.rmstaff) { staffNames().splice(Number(d.rmstaff), 1); return renderView(); }
+    if (d.confirm) { const fn = pendingConfirm; closeConfirm(); if (d.confirm === 'yes' && fn) fn(); return; }
+    if (d.rmstaff) {
+      const i = Number(d.rmstaff), n = staffNames()[i];
+      return confirmAction({
+        title: `Remove ${n} from staff names?`,
+        body: `${n} won't appear under "Sold by" when recording a sale anymore.`,
+        keep: `Their past sales stay in your reports under "${n}". You can add the name back any time.`,
+        confirm: 'Remove name',
+        onConfirm: () => { staffNames().splice(i, 1); renderView(); toast(`${n} removed from staff names`); }
+      });
+    }
     switch (d.act) {
       case 'sell': return openSell('');
       case 'close': return closeSheet();
       case 'save-sale': return saveSale();
       case 'save-restock': return saveRestock();
-      case 'signout': S.role = null; store.del('b125_role'); closeSheet(); return render();
+      case 'signout': return confirmAction({
+        title: 'Sign out of this phone?', danger: false,
+        body: `You'll need the ${S.role === 'owner' ? 'owner' : 'staff'} PIN to get back in.`,
+        keep: 'Nothing in the shop data changes.',
+        confirm: 'Sign out',
+        onConfirm: () => { S.role = null; store.del('b125_role'); closeSheet(); render(); }
+      });
+      case 'signout-all': return confirmAction({
+        title: 'Sign every phone out?',
+        body: 'All staff phones and this one will need the PIN again. Anyone mid-sale has to sign back in first.',
+        keep: 'Sales and stock are not affected. Use this after a staff member leaves or a PIN is shared.',
+        confirm: 'Sign all out',
+        onConfirm: () => toast('In the live app, every phone is now signed out.')
+      });
       case 'export': return toast('Excel export works once the app is connected to the sheet.');
       case 'demo-only': return toast('PIN changes happen in the live app, not in the demo.');
-      case 'reset': DemoBackend.reset(S.shop); S.settings.staff = null; renderView(); return toast('Sample data reset.');
-      case 'delete-product':
-        if (!editing.confirmDelete) { editing.confirmDelete = true; el.textContent = 'Tap again to delete for good'; return; }
-        DemoBackend.deleteProduct(S.shop, editing.id); closeSheet(); renderView(); return toast('Product deleted.');
+      case 'reset': return confirmAction({
+        title: 'Reset the sample data?',
+        body: 'Test sales, restocks and product changes you made in this demo will be undone.',
+        keep: 'This only affects the demo. The real shop is never touched.',
+        confirm: 'Reset demo',
+        onConfirm: () => { DemoBackend.reset(S.shop); S.settings.staff = null; renderView(); toast('Sample data reset.'); }
+      });
+      case 'delete-product': {
+        const p = data().products.find(x => x.id === editing.id);
+        if (!p) return;
+        const sold = data().sales.filter(x => x.productId === p.id).length;
+        return confirmAction({
+          title: `Delete ${label(p)}?`,
+          body: `It disappears from the stock list${num(p.quantity) > 0 ? `, including the ${num(p.quantity)} still counted on the shelf` : ''}. This can't be undone.`,
+          keep: sold ? `Its ${sold} past sale${sold === 1 ? '' : 's'} stay in your sales list and reports. If it's only sold out, you can keep it and restock later instead.` : 'It has no sales yet.',
+          confirm: 'Delete product',
+          onConfirm: () => { DemoBackend.deleteProduct(S.shop, p.id); closeSheet(); renderView(); toast(`${label(p)} deleted`); }
+        });
+      }
     }
   });
 
@@ -812,7 +889,7 @@
   });
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && $('#sheet-root') && $('#sheet-root').innerHTML) closeSheet();
+    if (e.key === 'Escape') { if ($('#confirm-root') && $('#confirm-root').innerHTML) return closeConfirm(); if ($('#sheet-root') && $('#sheet-root').innerHTML) closeSheet(); }
     if (!S.role && /^[0-9]$/.test(e.key)) pressKey(e.key);
     if (!S.role && e.key === 'Backspace') pressKey('⌫');
   });
