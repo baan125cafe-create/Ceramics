@@ -113,7 +113,7 @@
       const srv = live() && data().settings ? data().settings : {};
       const pick = (a, b, fallback) => Array.isArray(a) && a.length ? a : (Array.isArray(b) && b.length ? b : fallback);
       S._settings = {
-        shop: S.shop, lowAt: num(srv.lowAt) || num(saved.lowAt) || c.lowAtDefault || 2,
+        shop: S.shop, lowAt: c.lowAtDefault || 2, // fixed for now (config.js), not set in Settings
         staff: Array.isArray(srv.staff) ? srv.staff : (Array.isArray(saved.staff) ? saved.staff : c.staffDefault.slice()),
         payments: JSON.parse(JSON.stringify(pick(srv.payments, live() ? null : saved.payments, CFG.payments)))
       };
@@ -783,13 +783,6 @@
           ${testCard()}
         </section>
         <section class="card tool">
-          <h2>Email reports</h2>
-          <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time. Send one now to check the emails arrive.</p>
-          <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div><button type="button" class="btn" data-report="daily" ${live() ? '' : 'disabled'}>Send now</button></div>
-          <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div><button type="button" class="btn" data-report="monthly" ${live() ? '' : 'disabled'}>Send now</button></div>
-          ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
-        </section>
-        <section class="card tool">
           <h2>${live() ? 'Shop data' : 'Sample data'}</h2>
           ${live() ? `<div class="set-row"><div><b>${Backends.live.local ? 'Local test copy' : 'Stored on Cloudflare'}</b><small style="word-break:break-all">${esc(Backends.live.api)}</small></div></div>`
             : '<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div><button type="button" class="btn" data-act="reset">Reset</button></div>'}
@@ -806,13 +799,6 @@
           </form>
         </section>
         <section class="card">
-          <h2>Shop rules</h2>
-          <div>
-            ${lowOn() ? `<div class="set-row"><div><b>"Running low" at</b><small>Flag a product on the dashboard and inventory list</small></div>
-              <label class="field" for="low-at" style="flex-direction:row;align-items:center"><span class="sr-only">Running low at</span><select id="low-at">${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${settings().lowAt === n ? 'selected' : ''}>${n} or fewer</option>`).join('')}</select></label></div>` : `<div class="set-row"><div><b>Inventory alerts</b><small>Only "sold out" is shown for this shop</small></div><span class="muted">Sold out</span></div>`}
-          </div>
-        </section>
-        <section class="card">
           <h2>Payment types</h2>
           <p class="muted small" style="margin:0">Shown when recording a sale. Tap a name to rename it. Each sale keeps the type it was saved with, so renaming or switching one off never changes past sales.</p>
           <div class="pay-types">${payTypes().map((t, i) => `<div class="pay-type">
@@ -824,6 +810,13 @@
             <label class="field" for="pay-new" style="flex:1 1 180px">Add a type<input id="pay-new" placeholder="e.g. Alipay" maxlength="30"></label>
             <button type="submit" class="btn" style="align-self:flex-end">Add</button>
           </form>
+        </section>
+        <section class="card">
+          <h2>Email reports</h2>
+          <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time. Send one now to check the emails arrive.</p>
+          <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div><button type="button" class="btn" data-report="daily" ${live() ? '' : 'disabled'}>Send now</button></div>
+          <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div><button type="button" class="btn" data-report="monthly" ${live() ? '' : 'disabled'}>Send now</button></div>
+          ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
         </section>
         <section class="card">
           <h2>Appearance</h2>
