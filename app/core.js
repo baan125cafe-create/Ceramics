@@ -123,11 +123,13 @@
   // ---------- live source: the shop API on Cloudflare (worker/) ----------
   // Every request after sign-in carries the pass from the PIN. The API decides what
   // each role may see and do; the app only hides what the role can't use.
-  // On this computer (localhost) the app always uses the local API from
-  // `npm run dev` in worker/ (port 8787, or ?local=PORT), never the real shop data.
+  // On this computer (localhost) the app uses the local API from `npm run dev` in
+  // worker/ (port 8787, or ?local=PORT), never the real shop data, unless the address
+  // ends in ?live=1: that tests the deployed API from this computer before merging.
   const LOCAL = (() => {
     try {
       if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return '';
+      if (new URL(location.href).searchParams.get('live') === '1') return '';
       const port = new URL(location.href).searchParams.get('local');
       return 'http://localhost:' + (/^\d{2,5}$/.test(port || '') ? port : '8787');
     } catch (e) { return ''; }

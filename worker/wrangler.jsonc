@@ -1,25 +1,39 @@
 // Cloudflare settings for the shop API. Secrets (PINs, email key) are NOT here:
 // set them with `npm run set-pin` / `npx wrangler secret put NAME`.
 {
-  "name": "shop-api",
-  "main": "src/index.js",
-  "compatibility_date": "2025-09-01",
-  "observability": { "enabled": true },
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "shop-db",
-      // Paste the id printed by `npx wrangler d1 create shop-db` here.
-      "database_id": "00000000-0000-0000-0000-000000000000"
-    }
-  ],
-  "r2_buckets": [
-    { "binding": "PHOTOS", "bucket_name": "shop-photos" }
-  ],
-  "vars": {
-    // Pages allowed to call the API from a browser (localhost is always allowed).
-    "ALLOWED_ORIGINS": "https://baan125cafe-create.github.io"
-  },
-  // Email reports, Bangkok times: daily 23:30, monthly on the 1st at 10:30.
-  "triggers": { "crons": ["30 16 * * *", "30 3 1 * *"] }
+	"name": "shop-api",
+	"main": "src/index.js",
+	"compatibility_date": "2025-09-01",
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "DB", // the code uses env.DB: keep this name
+			"database_name": "shop-db",
+			"database_id": "0337683b-dd92-48f9-8ed8-4624c2faaadd"
+		}
+	],
+	"r2_buckets": [
+		{
+			"bucket_name": "shop-photos",
+			"binding": "PHOTOS" // the code uses env.PHOTOS: keep this name
+		}
+	],
+	"vars": {
+		// Pages allowed to call the API from a browser (localhost is always allowed).
+		// Add the shop's own domain here once it's set up (see README → Custom domain).
+		"ALLOWED_ORIGINS": "https://baan125cafe-create.github.io",
+		// Sender for email reports. Leave empty until a domain is verified in Resend.
+		"REPORT_FROM": ""
+	},
+	// Once the domain is on Cloudflare, uncomment to serve the API at api.<domain>:
+	// "routes": [{ "pattern": "api.milkyanyong.shop", "custom_domain": true }],
+	// Email reports, Bangkok times: daily 23:30, monthly on the 1st at 10:30.
+	"triggers": {
+		"crons": [
+			"30 16 * * *",
+			"30 3 1 * *"
+		]
+	}
 }
