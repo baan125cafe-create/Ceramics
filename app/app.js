@@ -673,7 +673,7 @@
         <div class="pick">
           <div class="thumb" id="add-preview" style="width:84px;height:84px;background:var(--surface-2);color:var(--muted)">${I[SHOPS[S.shop].icon]}</div>
           <label class="btn" for="add-photo">Choose photo</label>
-          <input id="add-photo" type="file" accept="image/*" class="sr-only">
+          <input id="add-photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" class="sr-only">
         </div>
         <label class="field" for="add-name">Product name<input id="add-name" name="name" required placeholder="e.g. Lotus mug"></label>
         <label class="field" for="add-size">Size<input id="add-size" name="size" placeholder="e.g. 300ml"></label>
@@ -1125,6 +1125,28 @@
     }
   });
 
+  // Photos only (JPEG, PNG, WebP; iPhone HEIC where the browser can read it).
+  // Shrunk to at most 1600 px and re-saved as JPEG: faster uploads, and the
+  // location data some phones put in photos is left behind. The server checks again.
+  const PHOTO_TYPES = /^image\/(jpeg|png|webp|heic|heif)$/;
+  function preparePhoto(file) {
+    return new Promise((resolve, reject) => {
+      if (!PHOTO_TYPES.test(file.type || '')) return reject('Only photos can be added (JPEG, PNG or WebP).');
+      if (file.size > 25 * 1024 * 1024) return reject('That photo is too large (over 25 MB).');
+      const url = URL.createObjectURL(file), img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+        const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL('image/jpeg', 0.85));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject('This photo couldn’t be opened here. Please choose a JPEG or PNG photo.'); };
+      img.src = url;
+    });
+  }
+
   document.addEventListener('change', e => {
     if (e.target.id === 'sell-product') { noteNow(); sell.productId = e.target.value; sell.qty = 1; drawSell(); }
     if (e.target.id === 'low-at') { settings().lowAt = Number(e.target.value); saveSettings().then(ok => ok && toast(live() ? 'Saved' : 'Saved on this device')); }
@@ -1135,9 +1157,10 @@
       saveSettings().then(ok => { renderView(); if (ok) toast('Renamed to ' + v); });
     }
     if (e.target.id === 'add-photo' && e.target.files && e.target.files[0]) {
-      const r = new FileReader();
-      r.onload = () => { const pv = $('#add-preview'); pv.innerHTML = `<img src="${r.result}" alt="Selected photo">`; pv.dataset.img = r.result; };
-      r.readAsDataURL(e.target.files[0]);
+      const input = e.target, file = input.files[0], err = $('#add-err'), pv = $('#add-preview');
+      err.textContent = '';
+      preparePhoto(file).then(url => { pv.innerHTML = `<img src="${url}" alt="Selected photo">`; pv.dataset.img = url; },
+        m => { err.textContent = m; input.value = ''; delete pv.dataset.img; pv.innerHTML = I[SHOPS[S.shop].icon]; });
     }
   });
 

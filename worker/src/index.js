@@ -338,18 +338,29 @@ async function uploadImage(env, shop, d, origin) {
   let bytes;
   try { bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); } catch (e) { fail('That photo couldn’t be read.'); }
   if (bytes.length > MAX_PHOTO_BYTES) fail('That photo is too large.');
-  const mime = /^image\/(jpeg|png|webp)$/.test(d.mimeType) ? d.mimeType : 'image/jpeg';
+  // Trust the file's own bytes, not the name or label it came with: only real
+  // JPEG, PNG and WebP images are stored.
+  const mime = imageType(bytes);
+  if (!mime) fail('Only photos can be added (JPEG, PNG or WebP).');
   const key = `${shop}/${Date.now()}-${randomHex(4)}.${mime.split('/')[1].replace('jpeg', 'jpg')}`;
   await env.PHOTOS.put(key, bytes, { httpMetadata: { contentType: mime } });
   // Saved as a path on this API ("/img/…"), so the rows stay valid if the API's address changes.
   return { success: true, imageUrl: `/img/${key}` };
 }
 
+function imageType(b) {
+  if (b.length > 3 && b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) return 'image/jpeg';
+  if (b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47 && b[4] === 0x0D && b[5] === 0x0A && b[6] === 0x1A && b[7] === 0x0A) return 'image/png';
+  if (b.length > 12 && String.fromCharCode(...b.slice(0, 4)) === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WEBP') return 'image/webp';
+  return '';
+}
+
 async function photo(env, key) {
   if (!/^(baan|chud)\/[\w.-]+$/.test(key)) return new Response('Not found', { status: 404 });
   const obj = await env.PHOTOS.get(key);
   if (!obj) return new Response('Not found', { status: 404 });
-  return new Response(obj.body, { headers: { 'Content-Type': obj.httpMetadata?.contentType || 'image/jpeg', 'Cache-Control': 'public, max-age=31536000, immutable', 'ETag': obj.httpEtag } });
+  const type = /^image\/(jpeg|png|webp|gif|heic)$/.test(obj.httpMetadata?.contentType || '') ? obj.httpMetadata.contentType : 'image/jpeg';
+  return new Response(obj.body, { headers: { 'Content-Type': type, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'public, max-age=31536000, immutable', 'ETag': obj.httpEtag } });
 }
 
 // ---------- test data ----------

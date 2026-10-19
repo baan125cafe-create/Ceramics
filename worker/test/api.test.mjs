@@ -110,6 +110,8 @@ try {
   const img = await fetch(API + up.imageUrl);
   ok(img.ok && img.headers.get('content-type') === 'image/png' && (await img.arrayBuffer()).byteLength === 68, 'photo served');
   ok((await fetch(API + '/img/../secret')).status === 404, 'odd photo paths refused');
+  const html = Buffer.from('<html><script>alert(1)</script></html>').toString('base64');
+  ok(/Only photos/.test((await C('baan', { action: 'uploadImage', token: staff.token, mimeType: 'image/png', imageData: html })).error || ''), 'non-image refused even when labelled as a photo');
 
   // Wrong PINs pause sign-in for that shop only.
   let res; for (let i = 0; i < 5; i++) res = await C('baan', { action: 'login', pin: '000000' });
