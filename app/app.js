@@ -151,13 +151,9 @@
   const lowOn = () => SHOPS[S.shop].lowStock !== false;
   const status = p => num(p.quantity) <= 0 ? 'out' : (lowOn() && num(p.quantity) <= settings().lowAt ? 'low' : 'ok');
 
-  // Appearance: 'auto' follows the device; 'light'/'dark' are saved on this device only.
-  const THEME_KEY = 'b125_theme';
-  const getTheme = () => { const t = lsGet(THEME_KEY); return t === 'light' || t === 'dark' ? t : 'auto'; };
-  function setTheme(t) {
-    if (t === 'auto') { try { localStorage.removeItem(THEME_KEY); } catch (e) { /* ignore */ } } else lsSet(THEME_KEY, t);
-    if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', t);
-  }
+  // Appearance always follows the device (light or dark). An older saved choice is cleared.
+  try { localStorage.removeItem('b125_theme'); } catch (e) { /* ignore */ }
+  document.documentElement.removeAttribute('data-theme');
 
   const ROUTES = {
     owner: [['dashboard', 'Dashboard', 'chart'], ['stock', 'Inventory', 'box'], ['add', 'Add product', 'add'], ['sales', 'Sales', 'list'], ['settings', 'Settings', 'gear']],
@@ -844,11 +840,6 @@
           <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div><button type="button" class="btn" data-report="monthly" ${live() ? '' : 'disabled'}>Send now</button></div>
           ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
         </section>
-        <section class="card">
-          <h2>Appearance</h2>
-          <div class="set-row"><div><b>Light or dark</b><small>Automatic follows this phone or laptop. Saved on this device only.</small></div></div>
-          <div class="seg" role="group" aria-label="Appearance" style="max-width:360px">${[['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([k, t]) => `<button type="button" data-themepick="${k}" aria-pressed="${getTheme() === k}">${t}</button>`).join('')}</div>
-        </section>
         </div>
       </div>`;
   }
@@ -1078,7 +1069,6 @@
     if (d.who) { noteNow(); sell.who = d.who; return drawSell(); }
     if (d.add) { restock.cost = $('#restock-cost').value; restock.add = Math.max(1, restock.add + Number(d.add)); return drawRestock(); }
     if (d.addset) { restock.cost = $('#restock-cost').value; restock.add = Number(d.addset); return drawRestock(); }
-    if (d.themepick) { setTheme(d.themepick); return renderView(); }
     if (d.rmstaff) {
       const i = Number(d.rmstaff), n = staffNames()[i];
       return confirmAction({
