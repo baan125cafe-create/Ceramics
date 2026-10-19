@@ -8,7 +8,8 @@ window.SHOP_CONFIG = {
     baan: {
       name: 'Baan 125',
       sub: 'Hangout · ceramics',
-      icon: 'pot',
+      icon: 'pot',      // placeholder on product photos
+      logo: 'cup',      // shop logo: menu, sign-in, tab icon
       staffDefault: ['PB', 'Lin', 'Milk'],
       lowAtDefault: 2
     },
@@ -16,6 +17,7 @@ window.SHOP_CONFIG = {
       name: 'ChudPak',
       sub: 'Clothing',
       icon: 'shirt',
+      logo: 'dress',
       staffDefault: ['PB', 'Lin', 'Milk'],
       // Clothes are mostly one-offs, so ChudPak only tracks "sold out".
       lowStock: false

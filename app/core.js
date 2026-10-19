@@ -136,7 +136,7 @@
   })();
   const API = LOCAL || String(CFG.api || '').replace(/\/+$/, '');
   const READ_ONLY = 'Please sign in again to save.';
-  const ACTIONS = ['getVersion', 'login', 'getAll', 'addSale', 'addStock', 'addProduct', 'updateProduct', 'archiveProduct', 'uploadImage', 'saveSettings', 'signOutAll', 'previewTestData', 'clearTestData'];
+  const ACTIONS = ['getVersion', 'login', 'getAll', 'addSale', 'addStock', 'addProduct', 'updateProduct', 'archiveProduct', 'uploadImage', 'saveSettings', 'signOutAll', 'sendReport', 'previewTestData', 'clearTestData'];
   const passKey = shop => 'b125_pass_' + shop + (LOCAL ? '_local' : '');
   // Photos saved in R2 are stored as "/img/…" paths on the API.
   const photoUrl = u => (/^\/img\//.test(String(u || '')) && API ? API + u : String(u || ''));
@@ -195,6 +195,7 @@
     async deleteProduct(shop, id) { return this.call(shop, 'archiveProduct', { id }); },
     async saveSettings(shop, f) { return this.call(shop, 'saveSettings', f); },
     async signOutAll(shop) { const r = await this.call(shop, 'signOutAll'); this.dropPass(shop); return r; },
+    async sendReport(shop, kind) { return this.call(shop, 'sendReport', { kind }); },
     async previewTestData(shop) { return this.call(shop, 'previewTestData'); },
     async clearTestData(shop, ids) { return this.call(shop, 'clearTestData', ids); }
   };

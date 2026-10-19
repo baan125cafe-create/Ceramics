@@ -128,11 +128,16 @@ try {
   const o2 = await fetch(API + '/baan', { method: 'POST', body: '{"action":"getVersion"}', headers: { Origin: 'https://evil.example' } });
   ok(o1.headers.get('access-control-allow-origin') === 'https://baan125cafe-create.github.io' && !o2.headers.get('access-control-allow-origin'), 'CORS limited to the shop site');
 
+  // Manual report: owner only; without an email key it explains what's missing.
+  ok((await C('baan', { action: 'sendReport', token: staff.token, kind: 'daily' })).code === 'forbidden', 'staff cannot send reports');
+  { const sr = await C('baan', { action: 'sendReport', token: owner.token, kind: 'daily' }); ok(/isn’t set up/.test(sr.error || ''), 'send report explains missing email setup ' + JSON.stringify(sr)); }
+
   // Reports: run the daily job (no email key here, so it just must not fail).
   const cron = await fetch(API + '/__scheduled?cron=30+16+*+*+*');
   ok(cron.ok, 'daily report job runs');
 } catch (e) {
   failN++; console.log('ERROR', e);
 }
+if (failN) fs.writeFileSync(path.join(root, '.wrangler', 'test-dev.log'), log);
 console.log(`api checks: ${pass} passed, ${failN} failed`);
 stop(failN ? 1 : 0);

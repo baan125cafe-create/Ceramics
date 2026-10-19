@@ -32,7 +32,7 @@ const ACTIONS = {
   getVersion: null, login: null,
   getAll: 'staff', addSale: 'staff', addProduct: 'staff', uploadImage: 'staff',
   addStock: 'owner', updateProduct: 'owner', archiveProduct: 'owner',
-  saveSettings: 'owner', signOutAll: 'owner', previewTestData: 'owner', clearTestData: 'owner'
+  saveSettings: 'owner', signOutAll: 'owner', sendReport: 'owner', previewTestData: 'owner', clearTestData: 'owner'
 };
 
 class Fail extends Error { constructor(message, code) { super(message); this.code = code || ''; } }
@@ -109,6 +109,7 @@ async function run(env, shop, action, d, role, origin) {
     case 'archiveProduct': return archiveProduct(env, shop, d);
     case 'saveSettings': return saveSettings(env, shop, d);
     case 'signOutAll': return signOutAll(env, shop);
+    case 'sendReport': return sendReportNow(env, shop, d);
     case 'previewTestData': return previewTestData(env, shop);
     case 'clearTestData': return clearTestData(env, shop, d);
   }
@@ -379,17 +380,19 @@ async function clearTestData(env, shop, d) {
 
 // ---------- email (optional; needs RESEND_API_KEY and REPORT_TO) ----------
 async function email(env, subject, html) {
-  if (!env.RESEND_API_KEY || !env.REPORT_TO) return false;
+  if (!env.RESEND_API_KEY || !env.REPORT_TO) return { ok: false, error: 'Email isn’t set up yet (RESEND_API_KEY and REPORT_TO).' };
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: env.REPORT_FROM || 'Shop app <onboarding@resend.dev>', to: env.REPORT_TO.split(',').map(s => s.trim()), subject, html })
+      body: JSON.stringify({ from: env.REPORT_FROM || 'Shop app <onboarding@resend.dev>', to: env.REPORT_TO.split(',').map(s => s.trim()).filter(Boolean), subject, html })
     });
-    return r.ok;
-  } catch (e) { return false; } // email is best effort
+    if (r.ok) return { ok: true };
+    let msg = '';
+    try { msg = (await r.json()).message || ''; } catch (e) { /* not JSON */ }
+    return { ok: false, error: 'Resend refused the email: ' + (msg || 'HTTP ' + r.status) };
+  } catch (e) { return { ok: false, error: 'Couldn’t reach Resend: ' + e.message }; } // scheduled sends are best effort
 }
-
 function payLabel(v, types) {
   const s = String(v || '').trim().toLowerCase();
   const t = (types || []).find(x => x.id === s);
@@ -426,16 +429,35 @@ async function report(env, shop, fromDay, toDay, title, subtitle) {
 }
 
 const fmtDay = (day, opts) => new Date(day + 'T12:00:00Z').toLocaleDateString('en-GB', Object.assign({ timeZone: 'UTC' }, opts));
-async function sendDaily(env, shop, now) {
+// Today's report (daily) or last month's (monthly), Bangkok dates.
+async function buildReport(env, shop, kind, now) {
+  if (kind === 'monthly') {
+    const d = new Date(bkkDay(now) + 'T12:00:00Z');
+    d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1);
+    const ym = d.toISOString().slice(0, 7);
+    const name = fmtDay(ym + '-01', { month: 'long', year: 'numeric' });
+    const r = await report(env, shop, ym + '-01', ym + '-31', 'Monthly sales report', name);
+    return Object.assign(r, { subject: `📊 ${SHOPS[shop]} monthly report — ${name}`, period: name });
+  }
   const today = bkkDay(now);
-  const r = await report(env, shop, today, today, 'Daily sales report', fmtDay(today, { day: '2-digit', month: 'short', year: 'numeric' }));
-  if (r.n) await email(env, `📊 ${SHOPS[shop]} daily report — ${fmtDay(today, { day: '2-digit', month: 'short', year: 'numeric' })}`, r.html);
+  const label = fmtDay(today, { day: '2-digit', month: 'short', year: 'numeric' });
+  const r = await report(env, shop, today, today, 'Daily sales report', label);
+  return Object.assign(r, { subject: `📊 ${SHOPS[shop]} daily report — ${label}`, period: label });
+}
+async function sendDaily(env, shop, now) {
+  const r = await buildReport(env, shop, 'daily', now);
+  if (r.n) await email(env, r.subject, r.html); // no email on a day with no sales
 }
 async function sendMonthly(env, shop, now) {
-  const d = new Date(bkkDay(now) + 'T12:00:00Z');
-  d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 1);
-  const ym = d.toISOString().slice(0, 7);
-  const name = fmtDay(ym + '-01', { month: 'long', year: 'numeric' });
-  const r = await report(env, shop, ym + '-01', ym + '-31', 'Monthly sales report', name);
-  await email(env, `📊 ${SHOPS[shop]} monthly report — ${name}`, r.html);
+  const r = await buildReport(env, shop, 'monthly', now);
+  await email(env, r.subject, r.html);
+}
+// Owner's "Send now" button in Settings: sends even on a day with no sales, and
+// reports Resend's answer, so it doubles as a test of the email setup.
+async function sendReportNow(env, shop, d) {
+  const kind = d.kind === 'monthly' ? 'monthly' : 'daily';
+  const r = await buildReport(env, shop, kind, new Date());
+  const sent = await email(env, r.subject, r.html);
+  if (!sent.ok) fail(sent.error);
+  return { success: true, kind, period: r.period, sales: r.n, recipients: env.REPORT_TO.split(',').filter(x => x.trim()).length };
 }

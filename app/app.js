@@ -66,10 +66,24 @@
     out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>',
     warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
     swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4"/><path d="M3 8h14"/><path d="M17 20l4-4-4-4"/><path d="M21 16H7"/></svg>',
+    cup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h12v3.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V10z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H15.6"/><path d="M3 21.5h15"/><path d="M8 3.5c-.8.9.8 1.6 0 2.5M12 3.5c-.8.9.8 1.6 0 2.5"/></svg>',
+    dress: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 2.5v3M14.5 2.5v3"/><path d="M9.5 5.5h5l-.7 3.5 4.7 12.5h-13L10.2 9l-.7-3.5z"/><path d="M10.2 9h3.6"/></svg>',
+    store: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9 5 4h14l1.5 5"/><path d="M3.5 9h17v1.5a2.8 2.8 0 0 1-5.6 0 2.8 2.8 0 0 1-5.8 0 2.8 2.8 0 0 1-5.6 0V9z"/><path d="M5 13v7.5h14V13"/><path d="M10 20.5V16h4v4.5"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>',
     pot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10l-1 3a6 6 0 0 1 2 5v5a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-5a6 6 0 0 1 2-5L7 4z"/></svg>',
     shirt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3l-5 3 2 5 3-1v11h8V10l3 1 2-5-5-3a4 4 0 0 1-8 0z"/></svg>'
   };
+
+  // Shop logo (coffee cup / dress), browser tab icon and page title follow the chosen shop.
+  const logo = (k, cls) => `<span class="shop-logo${cls ? ' ' + cls : ''}" aria-hidden="true">${I[(SHOPS[k] || {}).logo] || I.store}</span>`;
+  function setTabIcon(k) {
+    const svg = (I[(SHOPS[k] || {}).logo] || I.store).replace('stroke="currentColor"', 'stroke="#A8532A"').replace('aria-hidden="true"', 'xmlns="http://www.w3.org/2000/svg"');
+    const icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#F6EBDD"/><g transform="translate(4 4)">${svg.replace('<svg', '<svg width="24" height="24"')}</g></svg>`;
+    let l = document.querySelector('link[rel="icon"]');
+    if (!l) { l = document.createElement('link'); l.rel = 'icon'; document.head.appendChild(l); }
+    l.type = 'image/svg+xml'; l.href = 'data:image/svg+xml,' + encodeURIComponent(icon);
+    document.title = SHOPS[k] ? SHOPS[k].name + ' · Shop' : 'Shop';
+  }
 
   // ---------- state ----------
   const SHOPS = CFG.shops;
@@ -82,6 +96,9 @@
     ui: { period: '30d', stockFilter: 'all', stockQ: '', staffTab: 'in', sellQ: '', salesPeriod: '30d', salesPay: 'all', salesQ: '' },
     lastSeller: lsGet('b125_seller') || ''
   };
+  // Sample data is for trying things on this computer; the live site only offers the real data.
+  const DEMO_OK = !!Backends.live.local || !Backends.live.configured();
+  if (!DEMO_OK) S.mode = 'live';
   if (S.mode !== 'demo' && S.mode !== 'live') S.mode = Backends.live.configured() ? 'live' : 'demo';
   const backend = () => Backends[S.mode];
   const live = () => S.mode === 'live';
@@ -307,6 +324,7 @@
     return `<div class="demo-strip real">Live · changes save to the real ${esc(SHOPS[S.shop].name)} data · to try things out, start a product name with [TEST]</div>`;
   }
   function render() {
+    setTabIcon(S.shop);
     if (!S.role) return renderSignIn();
     if (!S.route || !allowed(S.route)) S.route = ROUTES[S.role][0][0];
     const shop = SHOPS[S.shop];
@@ -352,11 +370,11 @@
   // The shop name at the top of the menu switches to the other shop.
   const otherShop = () => { const k = Object.keys(SHOPS); return k[(k.indexOf(S.shop) + 1) % k.length]; };
   function brandSwitch(shop, roleName) {
-    if (Object.keys(SHOPS).length < 2) return `<div class="brand-switch"><span class="brand">${esc(shop.name)}</span><span class="brand-sub">${roleName} · ${esc(shop.sub)}</span></div>`;
+    if (Object.keys(SHOPS).length < 2) return `<div class="brand-switch"><span class="brand">${logo(S.shop)}${esc(shop.name)}</span><span class="brand-sub">${roleName} · ${esc(shop.sub)}</span></div>`;
     const o = SHOPS[otherShop()];
     return `<button type="button" class="brand-switch" data-act="switch-shop" aria-label="${esc(shop.name)}, ${roleName}. Switch to ${esc(o.name)}">
-      <span class="brand">${esc(shop.name)}</span><span class="brand-sub">${roleName} · ${esc(shop.sub)}</span>
-      <span class="switch-hint">${I.swap}Switch to ${esc(o.name)}</span></button>`;
+      <span class="brand">${logo(S.shop)}${esc(shop.name)}</span><span class="brand-sub">${roleName} · ${esc(shop.sub)}</span>
+      <span class="switch-hint">${I.swap}Switch to ${logo(otherShop(), 'tiny')}${esc(o.name)}</span></button>`;
   }
   function switchShop() {
     const next = otherShop(), route = S.route;
@@ -389,9 +407,10 @@
 
   // ----- sign in -----
   function renderSignIn() {
+    setTabIcon(S.shop);
     const L = CFG.pinLength;
     const L6 = Backends.live;
-    const sources = `<div class="seg" role="group" aria-label="Data">
+    const sources = !DEMO_OK ? '' : `<div class="seg" role="group" aria-label="Data">
         <button type="button" data-mode="demo" aria-pressed="${S.mode === 'demo'}">Sample data</button>
         <button type="button" data-mode="live" aria-pressed="${S.mode === 'live'}">Live data</button>
       </div>`;
@@ -421,9 +440,10 @@
     app.innerHTML = `
       <div class="signin">
         <div class="signin-box">
+          ${logo(S.shop, 'big')}
           <h1>${esc(SHOPS[S.shop].name)}</h1>
           <div class="seg" role="group" aria-label="Shop">
-            ${Object.entries(SHOPS).map(([k, s]) => `<button type="button" data-shop="${k}" aria-pressed="${S.shop === k}">${esc(s.name)}</button>`).join('')}
+            ${Object.entries(SHOPS).map(([k, s]) => `<button type="button" data-shop="${k}" aria-pressed="${S.shop === k}">${logo(k, 'small')}${esc(s.name)}</button>`).join('')}
           </div>
           ${sources}
           ${body}
@@ -769,6 +789,13 @@
           ${testCard()}
         </section>
         <section class="card tool">
+          <h2>Email reports</h2>
+          <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time. Send one now to check the emails arrive.</p>
+          <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div><button type="button" class="btn" data-report="daily" ${live() ? '' : 'disabled'}>Send now</button></div>
+          <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div><button type="button" class="btn" data-report="monthly" ${live() ? '' : 'disabled'}>Send now</button></div>
+          ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
+        </section>
+        <section class="card tool">
           <h2>${live() ? 'Shop data' : 'Sample data'}</h2>
           ${live() ? `<div class="set-row"><div><b>${Backends.live.local ? 'Local test copy' : 'Stored on Cloudflare'}</b><small style="word-break:break-all">${esc(Backends.live.api)}</small></div></div>`
             : '<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div><button type="button" class="btn" data-act="reset">Reset</button></div>'}
@@ -877,6 +904,7 @@
     finally { write.busy = false; }
   }
 
+  const sendReport = {};
   let sell = null;
   function openSell(productId) {
     if (!shown().some(p => p.quantity > 0)) return toast('Nothing is in stock to sell.');
@@ -969,7 +997,7 @@
   function toast(msg) {
     const t = $('#toast');
     t.textContent = msg; t.hidden = false;
-    clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, 2800);
+    clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, Math.max(2800, String(msg).length * 60));
   }
   function go(route, filter) {
     if (!allowed(route)) return;
@@ -998,6 +1026,14 @@
       S.mode = d.mode; S.pin = ''; S.pinErr = '';
       const pass = live() && Backends.live.pass(S.shop);
       return pass ? enter(pass.role) : renderSignIn();
+    }
+    if (d.report) {
+      if (!live() || sendReport.busy) return;
+      sendReport.busy = true; el.disabled = true; el.textContent = 'Sending…';
+      return backend().sendReport(S.shop, d.report)
+        .then(r => toast(`Sent the ${r.kind === 'monthly' ? r.period + ' report' : 'daily report'} (${plural(r.sales, 'sale')}) to ${plural(r.recipients, 'address', 'addresses')}`))
+        .catch(e => { if (e.code === 'auth') { toast(e.message); return signOut(); } toast(e.message); })
+        .finally(() => { sendReport.busy = false; if (S.route === 'settings') renderView(); });
     }
     if (d.ptoggle) {
       const t = payTypes()[Number(d.ptoggle)];
