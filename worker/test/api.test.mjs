@@ -76,19 +76,21 @@ try {
   // Two phones selling the last 2 pieces at once: only enough for one of the three.
   const race = await Promise.all([0, 1, 2].map(() => C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-2', quantity: 2, paymentMethod: 'cash' })));
   ok(race.filter(r => r.success).length === 1, 'simultaneous sales cannot oversell ' + JSON.stringify(race.map(r => r.error || 'ok')));
-  ok(/\[TEST\] product/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 1, paymentMethod: 'cash', note: '[TEST] x' })).error), 'test sale on a real product refused');
+  ok(/test product/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 1, paymentMethod: 'cash', note: '[TEST] x' })).error), 'test sale on a real product refused');
 
   ok((await C('baan', { action: 'addStock', token: owner.token, productId: 'PRD-1', add: 6, costPrice: 170 })).quantity === 10, 'restock adds');
 
-  const tp = await C('baan', { action: 'addProduct', token: staff.token, name: '[TEST] mug', sellPrice: 100, quantity: 5, costPrice: 40 });
+  const tp = await C('baan', { action: 'addProduct', token: staff.token, name: 'Test mug', sellPrice: 100, quantity: 5, costPrice: 40 });
   ok(tp.success && tp.product.costPrice === 0, 'staff add ignores cost');
   await C('baan', { action: 'addSale', token: staff.token, productId: tp.product.id, quantity: 1, paymentMethod: 'card' });
+  await C('baan', { action: 'addProduct', token: staff.token, name: 'bowl [TEST]', sellPrice: 50, quantity: 1 });
+  await C('baan', { action: 'addProduct', token: staff.token, name: 'Latest vase', sellPrice: 50, quantity: 1 });
   const prev = await C('baan', { action: 'previewTestData', token: owner.token });
-  ok(prev.products.length === 1 && prev.sales.length === 1, 'preview lists only test rows');
+  ok(prev.products.map(x => x.name).sort().join() === 'Test mug,bowl [TEST]' && prev.sales.length === 1, 'preview lists only test rows (any case, whole word) ' + JSON.stringify(prev.products.map(x => x.name)));
   const cl = await C('baan', { action: 'clearTestData', token: owner.token, productIds: prev.products.map(x => x.id).concat('PRD-1'), saleIds: prev.sales.map(x => x.id).concat('SALE-1') });
-  ok(cl.removed.products === 1 && cl.removed.sales === 1, 'clear removes only test rows');
+  ok(cl.removed.products === 2 && cl.removed.sales === 1, 'clear removes only test rows');
   const after = await C('baan', { action: 'getAll', token: owner.token });
-  ok(after.products.some(p => p.id === 'PRD-1') && after.sales.some(s => s.id === 'SALE-1'), 'real rows untouched');
+  ok(after.products.some(p => p.id === 'PRD-1') && after.products.some(p => p.name === 'Latest vase') && after.sales.some(s => s.id === 'SALE-1'), 'real rows untouched ("Latest" is not a test)');
 
   await C('baan', { action: 'archiveProduct', token: owner.token, id: 'PRD-1' });
   ok(/removed/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 1, paymentMethod: 'cash' })).error), 'cannot sell a removed product');

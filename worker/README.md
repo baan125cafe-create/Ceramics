@@ -183,7 +183,7 @@ Run the app locally and open `http://localhost:8000/?live=1`. Choose **Live data
 
 - the totals match the sheets
 - photos show
-- a **[TEST]** product and sale work, then clear them in **Settings → Test data**
+- a **test** product (with “test” in its name) and sale work, then clear them in **Settings → Test data**
 
 ### Step 7 · Commit and merge
 
@@ -212,7 +212,7 @@ In each sheet, open **Extensions → Apps Script → Deploy → Manage deploymen
 
 ## Email reports
 
-Reports go out daily at 23:30 and monthly on the 1st at 10:30 (Bangkok time). They leave out [TEST] sales. The same email setup sends the "sign-in paused" warning.
+Reports go out daily at 23:30 and monthly on the 1st at 10:30 (Bangkok time). They leave out test sales. The same email setup sends the "sign-in paused" warning.
 
 Setup is in switch-over step 5: `RESEND_API_KEY` and `REPORT_TO` are secrets, and `REPORT_FROM` is in `wrangler.jsonc`.
 

@@ -52,11 +52,11 @@ Older labels in the data are shown like this, with no data changed:
 
 ## Test data
 
-Start a product name with **[TEST]** to try things out.
+Put **test** in a product name to try things out, in any case: `Test mug`, `[TEST] Vase`, `mug test`. It has to be the whole word, so `Latest` or `Contest` stay real products.
 
 - Test products and their sales are left out of every total, chart and email report.
 - A test sale is refused on a real product, so real inventory never changes in a test.
-- **Settings → Test data → Clear** lists exactly what will be removed and asks first. Only [TEST] rows can be removed.
+- **Settings → Test data → Clear** lists exactly what will be removed and asks first. Only test rows can be removed.
 
 ## Files
 
