@@ -368,7 +368,7 @@
     const o = SHOPS[otherShop()];
     return `<button type="button" class="brand-switch" data-act="switch-shop" aria-label="${esc(shop.name)}, ${roleName}. Switch to ${esc(o.name)}">
       <span class="brand">${logo(S.shop)}${esc(shop.name)}</span><span class="brand-sub">${roleName} · ${esc(shop.sub)}</span>
-      <span class="switch-hint">${I.swap}Switch to ${logo(otherShop(), 'tiny')}${esc(o.name)}</span></button>`;
+      <span class="switch-hint">${I.swap}<span>Switch to</span><span class="switch-to">${logo(otherShop(), 'tiny')}${esc(o.name)}</span></span></button>`;
   }
   function switchShop() {
     const next = otherShop(), route = S.route;
