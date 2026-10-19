@@ -134,15 +134,20 @@
       return 'http://localhost:' + (/^\d{2,5}$/.test(port || '') ? port : '8787');
     } catch (e) { return ''; }
   })();
-  const API = LOCAL || String(CFG.api || '').replace(/\/+$/, '');
+  // The main address first, then the backup (workers.dev). If a phone's network can't
+  // reach one (e.g. a new domain its DNS hasn't picked up yet), the next is tried and kept.
+  const APIS = LOCAL ? [LOCAL] : [CFG.api, CFG.apiBackup].map(u => String(u || '').replace(/\/+$/, '')).filter(Boolean);
+  let apiAt = 0;
+  const apiBase = () => APIS[apiAt] || '';
+  const API = APIS[0] || '';
   const READ_ONLY = 'Please sign in again to save.';
   const ACTIONS = ['getVersion', 'login', 'getAll', 'addSale', 'addStock', 'addProduct', 'updateProduct', 'archiveProduct', 'uploadImage', 'saveSettings', 'signOutAll', 'sendReport', 'previewTestData', 'clearTestData'];
   const passKey = shop => 'b125_pass_' + shop + (LOCAL ? '_local' : '');
   // Photos saved in R2 are stored as "/img/…" paths on the API.
-  const photoUrl = u => (/^\/img\//.test(String(u || '')) && API ? API + u : String(u || ''));
+  const photoUrl = u => (/^\/img\//.test(String(u || '')) && apiBase() ? apiBase() + u : String(u || ''));
   const Live = {
     id: 'live', info: {},
-    local: LOCAL, api: API,
+    local: LOCAL, get api() { return apiBase(); },
     configured() { return !!API; },
     pass(shop) {
       try { const p = JSON.parse(lsGet(passKey(shop)) || 'null'); if (p && p.token && new Date(p.expires) > new Date()) return p; } catch (e) { /* ignore */ }
@@ -157,9 +162,13 @@
       const body = Object.assign({}, payload || {}, { action });
       if (pass && action !== 'login' && action !== 'getVersion') body.token = pass.token;
       let r;
-      // text/plain POST: no CORS preflight.
-      try { r = await fetch(API + '/' + shop, { method: 'POST', body: JSON.stringify(body) }); }
-      catch (e) { throw new Error('Couldn’t reach the shop data. Check the internet connection and try again.'); }
+      // text/plain POST: no CORS preflight. Try the address that worked last, then the others.
+      for (let i = 0; i < APIS.length && !r; i++) {
+        const at = (apiAt + i) % APIS.length;
+        try { r = await fetch(APIS[at] + '/' + shop, { method: 'POST', body: JSON.stringify(body) }); apiAt = at; }
+        catch (e) { /* network or DNS failure: try the next address */ }
+      }
+      if (!r) throw new Error('Couldn’t reach the shop data. Check the internet connection and try again.');
       const j = await r.json().catch(() => null);
       if (!j) throw new Error('The shop data didn’t answer (HTTP ' + r.status + ').');
       if (j.error) {
