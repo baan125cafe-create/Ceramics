@@ -1,8 +1,7 @@
 // Shared helpers and the two data sources the app can run on.
-//  - demo:  made-up data in this browser tab (demo-data.js). Writes stay in the tab.
-//  - sheet: the shop's existing Google Apps Script, READ-ONLY. It can only send
-//           "get…" requests, so it cannot change the real sheet. Saving is turned
-//           on later by the new PIN-protected script, not by this file.
+//  - demo: made-up data in this browser tab (demo-data.js). Writes stay in the tab.
+//  - live: the shop API on Cloudflare (../worker). Sign-in with a PIN; the API
+//          checks the role on every request.
 (function () {
   'use strict';
   const CFG = window.SHOP_CONFIG;
@@ -22,7 +21,7 @@
     if (!v) return 'unknown';
     if (/^(cash|เงินสด)$/.test(v)) return 'cash';
     if (/^(card|credit card|debit card|debit|visa|master ?card|amex|บัตร.*)$/.test(v)) return 'card';
-    if (/^(qr|qr ?code|promptpay|prompt pay|พร้อมเพย์|transfer|bank transfer|โอน.*)$/.test(v)) return 'qr';
+    if (/^(qr|qr ?code|scan|alipay|wechat ?pay|promptpay|prompt pay|พร้อมเพย์|สแกน.*|transfer|bank transfer|โอน.*)$/.test(v)) return 'qr';
     if (v === 'credit') return 'legacy';
     return 'other';
   }
@@ -121,84 +120,66 @@
     }
   };
 
-  // ---------- live sheet source ----------
-  // Current script (v5): read-only preview, only get* requests are ever sent.
-  // New script (v6): PIN sign-in, then saving is allowed for the actions below.
-  const SCRIPT_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/;
-  const READ_ONLY = 'This is a read-only preview of the live sheet, so saving is turned off. It switches on once the new PIN-protected script is installed.';
-  const V6_WRITES = ['login', 'addSale', 'addStock', 'addProduct', 'updateProduct', 'archiveProduct', 'uploadImage', 'saveSettings', 'signOutAll', 'previewTestData', 'clearTestData'];
-  // Local testing only: on localhost, ?local=8787 points "Live sheet" at the pretend
-  // sheet from apps-script/local-sheet.js instead of Google.
+  // ---------- live source: the shop API on Cloudflare (worker/) ----------
+  // Every request after sign-in carries the pass from the PIN. The API decides what
+  // each role may see and do; the app only hides what the role can't use.
+  // On this computer (localhost) the app always uses the local API from
+  // `npm run dev` in worker/ (port 8787, or ?local=PORT), never the real shop data.
   const LOCAL = (() => {
     try {
+      if (!/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return '';
       const port = new URL(location.href).searchParams.get('local');
-      return /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /^\d{2,5}$/.test(port || '') ? 'http://localhost:' + port : '';
+      return 'http://localhost:' + (/^\d{2,5}$/.test(port || '') ? port : '8787');
     } catch (e) { return ''; }
   })();
+  const API = LOCAL || String(CFG.api || '').replace(/\/+$/, '');
+  const READ_ONLY = 'Please sign in again to save.';
+  const ACTIONS = ['getVersion', 'login', 'getAll', 'addSale', 'addStock', 'addProduct', 'updateProduct', 'archiveProduct', 'uploadImage', 'saveSettings', 'signOutAll', 'previewTestData', 'clearTestData'];
   const passKey = shop => 'b125_pass_' + shop + (LOCAL ? '_local' : '');
-  const Sheet = {
-    id: 'sheet', info: {},
-    local: LOCAL,
-    link(shop) { if (LOCAL) return LOCAL; const v = (lsGet(CFG.shops[shop].apiKey) || '').trim(); return SCRIPT_RE.test(v) ? v : ''; },
-    setLink(shop, url) {
-      url = String(url || '').trim();
-      if (!SCRIPT_RE.test(url)) throw new Error('That doesn’t look like a script link. It should start with https://script.google.com/macros/s/ and end with /exec.');
-      if (!lsSet(CFG.shops[shop].apiKey, url)) throw new Error('This browser won’t save the link (private mode?).');
-      delete this.info[shop];
-    },
-    forget(shop) { if (!LOCAL) lsDel(CFG.shops[shop].apiKey); lsDel(passKey(shop)); delete this.info[shop]; },
-    isV6(shop) { return !!(this.info[shop] && this.info[shop].version >= 6); },
+  // Photos saved in R2 are stored as "/img/…" paths on the API.
+  const photoUrl = u => (/^\/img\//.test(String(u || '')) && API ? API + u : String(u || ''));
+  const Live = {
+    id: 'live', info: {},
+    local: LOCAL, api: API,
+    configured() { return !!API; },
     pass(shop) {
       try { const p = JSON.parse(lsGet(passKey(shop)) || 'null'); if (p && p.token && new Date(p.expires) > new Date()) return p; } catch (e) { /* ignore */ }
       return null;
     },
     dropPass(shop) { lsDel(passKey(shop)); },
-    canWrite(shop) { return this.isV6(shop) && !!this.pass(shop); },
+    canWrite(shop) { return !!this.pass(shop); },
     async call(shop, action, payload) {
-      const isRead = /^get[A-Z]/.test(action);
-      // Hard guard: nothing but reads leaves this file unless the script is v6.
-      if (!isRead && !(this.isV6(shop) && V6_WRITES.includes(action))) throw new Error(READ_ONLY);
-      const url = this.link(shop);
-      if (!url) throw new Error('No sheet is connected for this shop yet.');
+      if (!ACTIONS.includes(action)) throw new Error('Unknown action: ' + action);
+      if (!API) throw new Error('The live shop data isn’t set up yet (no API address in config.js).');
       const pass = this.pass(shop);
       const body = Object.assign({}, payload || {}, { action });
-      if (pass && action !== 'login') body.token = pass.token;
-      // text/plain POST, same as the old pages: no CORS preflight.
-      const r = await fetch(url, { method: 'POST', body: JSON.stringify(body) });
-      if (!r.ok) throw new Error('The sheet didn’t answer (HTTP ' + r.status + ').');
-      const j = await r.json();
-      if (j && j.error) {
+      if (pass && action !== 'login' && action !== 'getVersion') body.token = pass.token;
+      let r;
+      // text/plain POST: no CORS preflight.
+      try { r = await fetch(API + '/' + shop, { method: 'POST', body: JSON.stringify(body) }); }
+      catch (e) { throw new Error('Couldn’t reach the shop data. Check the internet connection and try again.'); }
+      const j = await r.json().catch(() => null);
+      if (!j) throw new Error('The shop data didn’t answer (HTTP ' + r.status + ').');
+      if (j.error) {
         if (j.code === 'auth') this.dropPass(shop);
         const e = new Error(j.error); e.code = j.code || ''; throw e;
       }
       return j;
     },
-    // Asks which script is installed. An older script answers "Unknown action".
     async detect(shop) {
-      if (this.info[shop]) return this.info[shop];
-      try { const r = await this.call(shop, 'getVersion'); this.info[shop] = { version: Number(r.version) || 5, pinsSet: !!r.pinsSet }; }
-      catch (e) { if (/Unknown action/i.test(e.message)) this.info[shop] = { version: 5 }; else throw e; }
+      if (!this.info[shop]) this.info[shop] = await this.call(shop, 'getVersion');
       return this.info[shop];
     },
     async login(shop, pin) {
-      await this.detect(shop);
-      if (!this.isV6(shop)) throw new Error(READ_ONLY);
       const r = await this.call(shop, 'login', { pin });
       if (r.token) lsSet(passKey(shop), JSON.stringify({ token: r.token, role: r.role, expires: r.expires }));
       return r;
     },
     async load(shop) {
-      await this.detect(shop);
-      if (this.isV6(shop)) {
-        const r = await this.call(shop, 'getAll');
-        return Object.assign(normalize(r), { settings: r.settings || null, role: r.role });
-      }
-      try {
-        const r = await this.call(shop, 'getAll');
-        if (r && Array.isArray(r.products) && Array.isArray(r.sales)) return normalize(r);
-      } catch (e) { if (/connected|preview/.test(e.message)) throw e; /* older script: fall back */ }
-      const [p, s] = await Promise.all([this.call(shop, 'getProducts'), this.call(shop, 'getSales')]);
-      return normalize({ products: p.products, sales: s.sales });
+      const r = await this.call(shop, 'getAll');
+      const d = normalize(r);
+      d.products.forEach(p => { p.imageUrl = photoUrl(p.imageUrl); });
+      return Object.assign(d, { settings: r.settings || null, role: r.role });
     },
     async addSale(shop, f) { const r = await this.call(shop, 'addSale', f); return r.sale; },
     async addStock(shop, f) { return this.call(shop, 'addStock', f); },
@@ -221,5 +202,5 @@
   const isTestProduct = p => isTestText(p.name);
   const isTestSale = s => isTestText(s.productName) || isTestText(s.note);
 
-  window.ShopCore = { CFG, num, bkkDate, label, lsGet, lsSet, lsDel, payKind, PAY_LABEL, PAY_ORDER, normalize, isTestProduct, isTestSale, Backends: { demo: Demo, sheet: Sheet }, READ_ONLY };
+  window.ShopCore = { CFG, num, bkkDate, label, lsGet, lsSet, lsDel, payKind, PAY_LABEL, PAY_ORDER, normalize, isTestProduct, isTestSale, Backends: { demo: Demo, live: Live }, READ_ONLY };
 })();
