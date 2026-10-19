@@ -8,10 +8,10 @@ The shop data for Baan 125 and ChudPak: products, sales, settings and photos. It
 
 The app is a static site on GitHub Pages. It talks to this API at the address in `app/config.js` (`api`).
 
-| | Address now | With the shop domain |
+| | Address | Backup address |
 | --- | --- | --- |
-| App | `https://baan125cafe-create.github.io/Ceramics/` | `https://milkyanyong.shop` |
-| API | `https://shop-api.milkshops.workers.dev` | `https://api.milkyanyong.shop` |
+| App | `https://milkyanyong.shop` | `https://baan125cafe-create.github.io/Ceramics/` (redirects to the domain) |
+| API | `https://api.milkyanyong.shop` | `https://shop-api.milkshops.workers.dev` |
 
 The site root opens `app/`. The old `owner.html`, `staff.html` and `ChudPak_*.html` pages redirect there too.
 
@@ -82,36 +82,67 @@ npm run deploy                                  # prints the API address
 npm run set-pin -- --shop baan --role owner     # then baan staff, chud owner, chud staff
 ```
 
-Put the printed address in `app/config.js`:
+`app/config.js` points at `https://api.milkyanyong.shop`, which starts working after the switch-over deploy (step 5). The live site doesn't change until the branch is merged into `main`.
 
-```js
-api: 'https://shop-api.milkshops.workers.dev',
-```
+## Before switch-over day: start the domain
 
-Commit it on the branch. The live site doesn't change until the branch is merged into `main` (see the switch-over steps).
+DNS changes can take a few hours to spread, so do these the day before.
 
-### Step 6 · Check the real API from your computer
+### Step A · Move the domain's DNS to Cloudflare
 
-Run the app locally and open `http://localhost:8000/?live=1`. Choose **Live data** and sign in with the real PIN. The shops are empty until the switch-over import.
+1. In Cloudflare, choose **Add a domain**, enter `milkyanyong.shop`, and pick the Free plan. Skip importing any existing records.
+2. Cloudflare shows two nameservers. In Namecheap, open **Domain List → milkyanyong.shop → Manage → Nameservers → Custom DNS**, enter both, and save (the green tick).
+3. Cloudflare emails you when the domain is **Active**. The domain stays registered and renewed at Namecheap; only its DNS moves.
 
-## Switch-over day
+### Step B · Add the records for the app
 
-Do this when no one is selling, for example late evening in Phuket. Nothing is written to both places: after the switch, Cloudflare is the only place data is saved.
+In Cloudflare, open **milkyanyong.shop → DNS → Records** and add these five records. Set every one to **DNS only** (grey cloud), so GitHub can issue the HTTPS certificate.
 
-### Step 1 · Export the sheets
+| Type | Name | Content |
+| --- | --- | --- |
+| A | `@` | `185.199.108.153` |
+| A | `@` | `185.199.109.153` |
+| A | `@` | `185.199.110.153` |
+| A | `@` | `185.199.111.153` |
+| CNAME | `www` | `baan125cafe-create.github.io` |
 
-In each Google Sheet, use **File → Download → Comma-separated values (.csv)**, once on the Products tab and once on the Sales tab. Save the files outside the repo.
+Don't add a record for `api`: Cloudflare creates it when the API is deployed.
 
-### Step 2 · Import
+**Don't set the custom domain in GitHub yet.** The old pages save the script link per web address. Moving them to a new address before the switch-over would make every phone ask for the link again in the middle of a selling day.
+
+### Step C · Set up Resend
+
+1. Create an account at [resend.com](https://resend.com).
+2. Under **Domains → Add domain**, enter `milkyanyong.shop`. Use **Auto configure** to let Resend add its DNS records in Cloudflare, or copy them in by hand. These records are fine with the orange cloud or grey.
+3. Under **API Keys**, create a key with **Sending access**, and keep it for switch-over day.
+
+## Switch-over day, in order
+
+Pick a time when no one is selling, for example late evening in Phuket. Nothing is written to both places: after the switch, Cloudflare is the only place data is saved. Run commands in `~/Ideas/Ceramics/worker`, on the `shop-app-cloudflare` branch.
+
+### Step 1 · Check the domain is ready
+
+- **Cloudflare:** the domain shows **Active**.
+- **Resend:** the domain shows **Verified**.
+
+If Cloudflare isn't active yet, wait; nothing else depends on it until step 5.
+
+### Step 2 · Export the sheets
+
+In each Google Sheet, use **File → Download → Comma-separated values (.csv)**, once on the Products tab and once on the Sales tab. Save the four files outside the repo, for example in `~/Downloads`.
+
+From here until step 9, ask the shop not to record sales. Anything saved in the old pages after the export won't be moved.
+
+### Step 3 · Import
 
 ```sh
 npm run import -- --shop baan --products ~/Downloads/baan-Products.csv --sales ~/Downloads/baan-Sales.csv --remote
 npm run import -- --shop chud --products ~/Downloads/chud-Products.csv --sales ~/Downloads/chud-Sales.csv --remote
 ```
 
-Each import refuses to run if that shop already has data, unless you add `--replace`. It prints the sheet's counts and totals next to the database's, and they must match.
+Each import prints the sheet's counts and totals next to the database's, and they must match. It refuses to run if that shop already has data, unless you add `--replace`.
 
-### Step 3 · Copy the photos into R2
+### Step 4 · Copy the photos into R2
 
 Run this in your own Terminal, because it downloads from Google:
 
@@ -120,73 +151,72 @@ npm run copy-photos -- --shop baan --remote
 npm run copy-photos -- --shop chud --remote
 ```
 
-It's safe to run again. Any photo it can't download (for example, one that's no longer shared) is listed, and that product keeps its Google link. Downloaded copies stay in `worker/.data/photos/` as a backup.
+It's safe to run again. Any photo it can't download is listed, and that product keeps its Google link. Copies stay in `worker/.data/photos/` as a backup.
 
-### Step 4 · Check, then merge
+### Step 5 · Email settings and deploy
 
-1. Open `http://localhost:8000/?live=1` and check both shops: totals, a few photos, and a [TEST] sale that you then clear.
-2. Merge the pull request into `main`. GitHub Pages publishes it within a few minutes.
-
-### Step 5 · Retire the old script
-
-In each sheet, open **Extensions → Apps Script → Deploy → Manage deployments** and archive every deployment. The old links stop working, and the sheets stay as a frozen backup.
-
-## Custom domain (milkyanyong.shop)
-
-This puts the app at `milkyanyong.shop` and the API at `api.milkyanyong.shop`, and lets report emails come from the shop's own address. It can happen before or after the switch-over.
-
-### Step 1 · Move the domain's DNS to Cloudflare
-
-1. In Cloudflare, choose **Add a domain**, enter `milkyanyong.shop`, and pick the Free plan.
-2. Cloudflare shows two nameservers. In Namecheap, open **Domain List → Manage → Nameservers → Custom DNS** and enter those two.
-3. Wait until Cloudflare says the domain is active. It usually takes minutes, sometimes a few hours.
-
-The domain stays registered (and renewed) at Namecheap; only its DNS moves.
-
-### Step 2 · Point the app at GitHub Pages
-
-1. In Cloudflare **DNS → Records**, add four `A` records for `milkyanyong.shop` (name `@`), one for each of these addresses:
-   - `185.199.108.153`
-   - `185.199.109.153`
-   - `185.199.110.153`
-   - `185.199.111.153`
-2. Set each record to **DNS only** (grey cloud), so GitHub can issue the HTTPS certificate.
-3. Add a `CNAME` record: name `www`, target `baan125cafe-create.github.io`, also **DNS only**.
-4. In the repo on GitHub, open **Settings → Pages → Custom domain**, enter `milkyanyong.shop`, and save. This adds a `CNAME` file to `main`.
-5. Turn on **Enforce HTTPS** once it's offered.
-6. Recommended: verify the domain under the GitHub organization's **Settings → Pages → Verified domains**, so no one else can use it on GitHub.
-
-The old `github.io` address then redirects to the new domain.
-
-Phones have to sign in once on the new address, because sign-in passes are saved per address.
-
-### Step 3 · Serve the API on the domain
-
-1. In `wrangler.jsonc`, uncomment the `routes` line (`api.milkyanyong.shop`).
-2. Add `https://milkyanyong.shop` to `ALLOWED_ORIGINS`, separated by a comma. Keep the `github.io` one during the move.
-3. Run `npm run deploy`. Cloudflare creates the `api` record and its certificate itself.
-4. Put `api: 'https://api.milkyanyong.shop',` in `app/config.js`, then commit and merge.
-
-### Step 4 · Send reports from the domain
-
-In Resend, choose **Domains → Add domain** and enter `milkyanyong.shop`. Resend can add its DNS records to Cloudflare for you (**Auto configure**), or you can copy them in by hand. After it shows **Verified**, set the sender in `wrangler.jsonc` and deploy:
+In `wrangler.jsonc`, set the sender:
 
 ```jsonc
 "REPORT_FROM": "Baan 125 shop <reports@milkyanyong.shop>"
 ```
 
-To receive mail at the domain too (for example `hello@milkyanyong.shop` forwarding to Milk's Gmail), turn on **Email → Email Routing** in Cloudflare. It's free.
+Then add the email secrets and deploy:
+
+```sh
+npx wrangler secret put RESEND_API_KEY     # the key from Resend
+npx wrangler secret put REPORT_TO          # who gets reports, comma-separated
+npm run deploy
+```
+
+The deploy puts the API on `https://api.milkyanyong.shop`. Check it answers:
+
+```sh
+curl -X POST https://api.milkyanyong.shop/baan -d '{"action":"getVersion"}'
+```
+
+The answer should include `"version":7`. A brand-new address can take a few minutes to start working.
+
+### Step 6 · Check from your computer
+
+Run the app locally and open `http://localhost:8000/?live=1`. Choose **Live data** and sign in to each shop with the real PINs. Check:
+
+- the totals match the sheets
+- photos show
+- a **[TEST]** product and sale work, then clear them in **Settings → Test data**
+
+### Step 7 · Commit and merge
+
+1. Commit and push the `REPORT_FROM` change.
+2. Merge the redesign pull request, then the Cloudflare one. Use **Create a merge commit** for both (not squash).
+3. Before merging the second one, change its base to `main` (or click **Delete branch** after the first merge, which does it for you) and mark it **Ready for review**.
+
+The merge includes a `CNAME` file that moves the site to `milkyanyong.shop`.
+
+### Step 8 · Turn on the domain in GitHub
+
+1. In the repo on GitHub, open **Settings → Pages**. **Custom domain** should show `milkyanyong.shop`; if it's empty, enter it and save.
+2. Wait for the DNS check to pass and the certificate to be issued. This can take up to an hour.
+3. Tick **Enforce HTTPS**.
+4. Recommended: verify the domain under the organization's **Settings → Pages → Verified domains**, so no one else can use it on GitHub.
+
+The old `github.io` address then redirects to `milkyanyong.shop`, and old bookmarks to `owner.html` or `staff.html` land on the app.
+
+### Step 9 · Sign in on the shop phones
+
+Open `https://milkyanyong.shop` on each phone, choose the shop and **Live data**, and enter the PIN. Add it to the home screen. Staff can start selling again.
+
+### Step 10 · Retire the old script
+
+In each sheet, open **Extensions → Apps Script → Deploy → Manage deployments** and archive every deployment. The old links stop working, and the sheets stay as a frozen backup.
 
 ## Email reports
 
 Reports go out daily at 23:30 and monthly on the 1st at 10:30 (Bangkok time). They leave out [TEST] sales. The same email setup sends the "sign-in paused" warning.
 
-```sh
-npx wrangler secret put RESEND_API_KEY     # from resend.com → API Keys
-npx wrangler secret put REPORT_TO          # who gets them, comma-separated
-```
+Setup is in switch-over step 5: `RESEND_API_KEY` and `REPORT_TO` are secrets, and `REPORT_FROM` is in `wrangler.jsonc`.
 
-Until a domain is verified in Resend, it only delivers to the email address on the Resend account itself.
+To receive mail at the domain too (for example `hello@milkyanyong.shop` forwarding to Milk's Gmail), turn on **Email → Email Routing** in Cloudflare. It's free.
 
 ## Watching usage and cost
 

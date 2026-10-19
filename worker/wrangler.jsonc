@@ -22,13 +22,15 @@
 	],
 	"vars": {
 		// Pages allowed to call the API from a browser (localhost is always allowed).
-		// Add the shop's own domain here once it's set up (see README → Custom domain).
-		"ALLOWED_ORIGINS": "https://baan125cafe-create.github.io",
+		"ALLOWED_ORIGINS": "https://milkyanyong.shop,https://www.milkyanyong.shop,https://baan125cafe-create.github.io",
 		// Sender for email reports. Leave empty until a domain is verified in Resend.
 		"REPORT_FROM": ""
 	},
-	// Once the domain is on Cloudflare, uncomment to serve the API at api.<domain>:
-	// "routes": [{ "pattern": "api.milkyanyong.shop", "custom_domain": true }],
+	// The API's address. Needs milkyanyong.shop to be active in this Cloudflare account;
+	// Cloudflare creates the DNS record and certificate on deploy.
+	"routes": [{ "pattern": "api.milkyanyong.shop", "custom_domain": true }],
+	// Keep the backup address (shop-api.milkshops.workers.dev) working too.
+	"workers_dev": true,
 	// Email reports, Bangkok times: daily 23:30, monthly on the 1st at 10:30.
 	"triggers": {
 		"crons": [
