@@ -445,6 +445,11 @@
   function viewDashboard() {
     const st = stats(S.ui.period);
     const periods = [['today', 'Today'], ['7d', '7 days'], ['30d', '30 days'], ['12m', '12 mo']];
+    // Phones: under the title. Wide screens: top of the right column, level with the chart.
+    // Only one is ever shown, so screen readers meet it once.
+    const periodSeg = cls => `<div class="seg ${cls}" role="group" aria-label="Time period">
+          ${periods.map(([k, t]) => `<button type="button" data-period="${k}" aria-pressed="${S.ui.period === k}">${t}</button>`).join('')}
+        </div>`;
     let delta = '<span class="delta flat">No earlier sales</span>';
     if (st.prevRevenue > 0) {
       const d = (st.revenue - st.prevRevenue) / st.prevRevenue * 100;
@@ -466,9 +471,7 @@
     return `
       <div class="page-head">
         <div><h1>Dashboard</h1><div class="muted small">${esc(st.R.label)} · ${esc(updatedLabel())}</div></div>
-        <div class="seg" role="group" aria-label="Time period" style="max-width:420px">
-          ${periods.map(([k, t]) => `<button type="button" data-period="${k}" aria-pressed="${S.ui.period === k}">${t}</button>`).join('')}
-        </div>
+        ${periodSeg('period-top')}
       </div>
       <div class="dash">
         <section class="hero" aria-label="Revenue">
@@ -492,6 +495,7 @@
         </section>
 
         <div class="side-stack">
+          ${periodSeg('period-side')}
           <section class="card">
             <h2>How people paid</h2>
             ${pays.length ? `<div class="split" role="img" aria-label="${esc(pays.map(x => x.label + ' ' + x.p + ' percent').join(', '))}">${pays.map(x => `<i style="flex:${x.v} 1 0;background:${x.c}"></i>`).join('')}</div>
