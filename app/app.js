@@ -941,7 +941,7 @@
   function openRestock(id) {
     const p = shown().find(x => x.id === id);
     if (!p) return;
-    restock = { id, add: 6, cost: p.costPrice > 0 ? p.costPrice : '' };
+    restock = { id, add: 5, cost: p.costPrice > 0 ? p.costPrice : '' };
     drawRestock();
   }
   function drawRestock() {
@@ -951,7 +951,7 @@
       <div class="panel" style="align-items:center">
         <div class="muted">How many new pieces arrived?</div>
         <div class="stepper"><button type="button" data-add="-1" aria-label="One fewer">−</button><output aria-live="polite">${restock.add}</output><button type="button" class="plus" data-add="1" aria-label="One more">+</button></div>
-        <div class="chips">${[6, 12, 24].map(n => `<button type="button" class="chip" data-addset="${n}">+${n}</button>`).join('')}</div>
+        <div class="chips">${[5, 10, 15, 20].map(n => `<button type="button" class="chip" data-addset="${n}" aria-pressed="${restock.add === n}">+${n}</button>`).join('')}</div>
         <div>Shelf after saving: <b>${p.quantity + restock.add}</b></div>
       </div>
       <label class="field" for="restock-cost">Cost per piece for this batch (฿)<input id="restock-cost" type="number" min="0" inputmode="decimal" value="${esc(restock.cost)}" placeholder="Cost price"><span class="hint">Saved with each sale from now on, so profit stays right if the price changes later.</span></label>
