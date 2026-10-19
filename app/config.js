@@ -4,6 +4,9 @@ window.SHOP_CONFIG = {
   // Address of the shop API on Cloudflare (see worker/README.md). Not a secret:
   // every request still needs a PIN sign-in. Leave empty until it's deployed.
   api: 'https://api.milkyanyong.shop',
+  // Used automatically if a device can't reach the address above (for example while a
+  // phone network hasn't picked up the domain yet).
+  apiBackup: 'https://shop-api.milkshops.workers.dev',
   shops: {
     baan: {
       name: 'Baan 125',
