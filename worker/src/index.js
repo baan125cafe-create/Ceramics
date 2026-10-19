@@ -12,7 +12,8 @@
 //   - Staff never receive cost prices or money totals.
 //   - Sales: the server sets price, total and today's cost. Stock can't go below 0.
 //   - "Remove" archives a product; its row stays so old sales keep their cost.
-//   - [TEST] rows are left out of reports and are the only rows that can be cleared.
+//   - Test rows ("test" as a word anywhere in the product name, any case) are left out of
+//     reports and are the only rows that can be cleared.
 //
 // Secrets (set with `npm run set-pin`, or `wrangler secret put`; never in this repo):
 //   BAAN_OWNER_PIN_HASH, BAAN_STAFF_PIN_HASH, CHUD_OWNER_PIN_HASH, CHUD_STAFF_PIN_HASH
@@ -49,9 +50,13 @@ const randomHex = n => [...crypto.getRandomValues(new Uint8Array(n))].map(b => b
 const bkkDay = d => new Date(d.getTime() + 7 * 3600000).toISOString().slice(0, 10);
 const int = x => Math.floor(Number(x));
 const money = x => Math.round(Number(x) * 100) / 100;
+// A product is a test product when its name has "test" as a word, in any case: "[TEST] Mug",
+// "test mug", "Mug Test". Whole word only, so names like "Latest" or "Contest" stay real.
+const isTestName = s => /\btest\b/i.test(String(s || ''));
+// Notes are free text, so only a note starting with [TEST] marks a sale as a test.
 const isTestText = s => /^\s*\[test\]/i.test(String(s || ''));
-const isTestProduct = p => isTestText(p.name);
-const isTestSale = s => isTestText(s.productName) || isTestText(s.note);
+const isTestProduct = p => isTestName(p.name);
+const isTestSale = s => isTestName(s.productName) || isTestText(s.note);
 const str = (v, max) => String(v == null ? '' : v).trim().slice(0, max);
 
 function cors(req, env) {
@@ -220,7 +225,7 @@ async function addSale(env, shop, d) {
   const types = (await readSettings(env, shop)).payments.filter(t => !t.retired);
   if (!types.some(t => t.id === pay)) fail('Choose one of: ' + types.map(t => t.label).join(', ') + '.');
   const note = str(d.note, 300);
-  if (isTestText(note) && !isTestProduct(p)) fail('Test sales must use a [TEST] product so real stock isn’t changed.');
+  if (isTestText(note) && !isTestProduct(p)) fail('Test sales must use a test product (with “test” in its name) so real inventory isn’t changed.');
   const now = new Date();
   const price = money(p.sellPrice);
   const sale = {
@@ -367,8 +372,8 @@ async function photo(env, key) {
 // ---------- test data ----------
 async function testRows(env, shop) {
   const [p, s] = await Promise.all([
-    env.DB.prepare("SELECT id, name FROM products WHERE shop = ? AND name LIKE '%[TEST]%'").bind(shop).all(),
-    env.DB.prepare("SELECT id, productName, note, total FROM sales WHERE shop = ? AND (productName LIKE '%[TEST]%' OR note LIKE '%[TEST]%')").bind(shop).all()
+    env.DB.prepare("SELECT id, name FROM products WHERE shop = ? AND name LIKE '%test%'").bind(shop).all(),
+    env.DB.prepare("SELECT id, productName, note, total FROM sales WHERE shop = ? AND (productName LIKE '%test%' OR note LIKE '%[TEST]%')").bind(shop).all()
   ]);
   return { products: p.results.filter(isTestProduct), sales: s.results.filter(isTestSale) };
 }
@@ -376,7 +381,7 @@ async function previewTestData(env, shop) {
   const t = await testRows(env, shop);
   return { products: t.products.map(x => ({ id: x.id, name: x.name })), sales: t.sales.map(x => ({ id: x.id, name: x.productName, total: x.total })) };
 }
-// Deletes only rows that are still [TEST] rows and were in the list the owner confirmed.
+// Deletes only rows that are still test rows and were in the list the owner confirmed.
 async function clearTestData(env, shop, d) {
   const want = { products: new Set((d.productIds || []).map(String)), sales: new Set((d.saleIds || []).map(String)) };
   const t = await testRows(env, shop);

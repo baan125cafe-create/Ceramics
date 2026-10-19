@@ -69,7 +69,7 @@
       const d = demoData(shop);
       const p = d.products.find(x => x.id === productId && !x.archived);
       if (!p) throw new Error('That product no longer exists.');
-      if (isTestText(note) && !isTestProduct(p)) throw new Error('Test sales must use a [TEST] product so real stock isn\u2019t changed.');
+      if (isTestText(note) && !isTestProduct(p)) throw new Error('Test sales must use a test product (with \u201ctest\u201d in its name) so real inventory isn\u2019t changed.');
       const q = Math.floor(num(quantity));
       if (q < 1) throw new Error('Enter a quantity of 1 or more.');
       if (q > p.quantity) throw new Error('Only ' + p.quantity + ' left on the shelf.');
@@ -209,10 +209,13 @@
     async clearTestData(shop, ids) { return this.call(shop, 'clearTestData', ids); }
   };
 
-  // [TEST] rows: left out of every total, and clearable from Settings.
+  // Test rows: left out of every total, and clearable from Settings. A product is a test product
+  // when its name has "test" as a word, in any case ("[TEST] Mug", "test mug"), not "Latest".
+  // Must match isTestName / isTestSale in worker/src/index.js.
+  const isTestName = v => /\btest\b/i.test(String(v || ''));
   const isTestText = v => /^\s*\[test\]/i.test(String(v || ''));
-  const isTestProduct = p => isTestText(p.name);
-  const isTestSale = s => isTestText(s.productName) || isTestText(s.note);
+  const isTestProduct = p => isTestName(p.name);
+  const isTestSale = s => isTestName(s.productName) || isTestText(s.note);
 
   window.ShopCore = { CFG, num, bkkDate, label, lsGet, lsSet, lsDel, payKind, PAY_LABEL, PAY_ORDER, normalize, isTestProduct, isTestSale, Backends: { demo: Demo, live: Live }, READ_ONLY };
 })();

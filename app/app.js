@@ -327,7 +327,7 @@
   function strip() {
     if (!live()) return `<div class="demo-strip">Demo mode · sample data only · nothing here touches the real shop data</div>`;
     if (Backends.live.local) return `<div class="demo-strip live">Local test · shop API on this computer · changes stay on this computer</div>`;
-    return `<div class="demo-strip real">Live · changes save to the real ${esc(SHOPS[S.shop].name)} data · to try things out, start a product name with [TEST]</div>`;
+    return `<div class="demo-strip real">Live · changes save to the real ${esc(SHOPS[S.shop].name)} data · to try things out, put “test” in a product name</div>`;
   }
   function render() {
     setTabIcon(S.shop);
@@ -786,7 +786,7 @@
             <li>${plural(chk.noCost, 'product')} without a cost price; ${plural(chk.noCostSale, 'sale')} can’t be costed.</li>
             ${chk.orphan ? `<li>${plural(chk.orphan, 'sale')} ${chk.orphan === 1 ? 'points' : 'point'} to a product that no longer exists (still counted in revenue).</li>` : ''}
             ${chk.badDate ? `<li>${plural(chk.badDate, 'sale')} ${chk.badDate === 1 ? 'has a date the app can’t read, so it doesn’t' : 'have a date the app can’t read, so they don’t'} show in any period.</li>` : ''}
-            ${chk.tests ? `<li>${plural(chk.tests, 'test row')} ([TEST]) are left out of every total.</li>` : ''}
+            ${chk.tests ? `<li>${plural(chk.tests, 'test row')} (“test” in the product name) are left out of every total.</li>` : ''}
             ${chk.negative ? `<li>${plural(chk.negative, 'product')} ${chk.negative === 1 ? 'shows' : 'show'} a stock count below zero.</li>` : ''}
           </ul>
         </section>
@@ -842,7 +842,7 @@
   function testCard() {
     const tp = data().products.filter(isTestProduct), ts = data().sales.filter(isTestSale);
     const names = tp.map(p => label(p)).slice(0, 6);
-    return `<p class="muted small" style="margin:0">To try things out, add a product whose name starts with <b>[TEST]</b> and sell it. Test rows are left out of every total and report.</p>
+    return `<p class="muted small" style="margin:0">To try things out, add a product with <b>test</b> in its name (any case, like “Test mug”) and sell it. Test rows are left out of every total and report.</p>
       <div class="set-row"><div><b>${plural(tp.length, 'test product')} · ${plural(ts.length, 'test sale')}</b><small>${names.length ? esc(names.join(', ')) + (tp.length > names.length ? '…' : '') : 'Nothing to clear.'}</small></div>
       <button type="button" class="btn danger" data-act="clear-tests" ${!tp.length && !ts.length || readOnly() || (live() && S.role !== 'owner') ? 'disabled' : ''}>Clear…</button></div>`;
   }
@@ -1086,8 +1086,8 @@
         const list = t.products.map(p => p.name).concat(t.sales.map(x => 'sale: ' + x.name)).slice(0, 8);
         return confirmAction({
           title: `Clear ${plural(n, 'test row')}?`,
-          body: `This permanently removes ${plural(t.products.length, 'product')} and ${plural(t.sales.length, 'sale')} whose name starts with [TEST]: ${list.join('; ')}${n > list.length ? '…' : ''}`,
-          keep: 'Only [TEST] rows are removed. Real products and sales are never touched.',
+          body: `This permanently removes ${plural(t.products.length, 'product')} and ${plural(t.sales.length, 'sale')} with “test” in the name: ${list.join('; ')}${n > list.length ? '…' : ''}`,
+          keep: 'Only test rows are removed. Real products and sales are never touched.',
           confirm: 'Clear test data',
           onConfirm: () => write(() => backend().clearTestData(S.shop, { productIds: t.products.map(p => p.id), saleIds: t.sales.map(x => x.id) }),
             r => { renderView(); toast(`Removed ${plural(r.removed.products, 'product')} and ${plural(r.removed.sales, 'sale')}`); if (!live()) loadData(true); })
