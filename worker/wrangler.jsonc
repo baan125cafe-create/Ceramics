@@ -23,8 +23,8 @@
 	"vars": {
 		// Pages allowed to call the API from a browser (localhost is always allowed).
 		"ALLOWED_ORIGINS": "https://milkyanyong.shop,https://www.milkyanyong.shop,https://baan125cafe-create.github.io",
-		// Sender for email reports. Leave empty until a domain is verified in Resend.
-		"REPORT_FROM": ""
+		// Sender for email reports (milkyanyong.shop is verified in Resend).
+		"REPORT_FROM": "Milk's shops <reports@milkyanyong.shop>"
 	},
 	// The API's address. Needs milkyanyong.shop to be active in this Cloudflare account;
 	// Cloudflare creates the DNS record and certificate on deploy.
