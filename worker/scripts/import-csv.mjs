@@ -81,7 +81,21 @@ for (const x of S) {
 }
 
 // ---------- run ----------
-const wr = (...a) => execFileSync('npx', ['wrangler', ...a], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+// Cloudflare's API sometimes refuses a request for a moment (e.g. code 7403 or a dropped
+// connection). Wait and try again a few times before giving up.
+const TRANSIENT = /7403|7500|10000|fetch failed|ECONNRESET|ETIMEDOUT|socket hang up|Internal error|503|502/i;
+const pause = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+const wr = (...a) => {
+  for (let attempt = 1; ; attempt++) {
+    try { return execFileSync('npx', ['wrangler', ...a], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
+    catch (e) {
+      const out = String(e.stdout || '') + String(e.stderr || '');
+      if (attempt >= 4 || !TRANSIENT.test(out)) { console.error(out.trim() || e.message); process.exit(1); }
+      console.log(`  Cloudflare didn't answer properly (try ${attempt} of 4). Trying again in ${attempt * 5} s…`);
+      pause(attempt * 5000);
+    }
+  }
+};
 // wrangler can print notices before its JSON; read from the first line that starts with "[".
 const fromJson = out => JSON.parse(out.slice(Math.max(0, out.search(/^\[/m))));
 const query = q => fromJson(wr('d1', 'execute', 'shop-db', target, '--json', '--command', q))[0].results;

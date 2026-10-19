@@ -29,7 +29,18 @@ if (!['baan', 'chud'].includes(shop)) { console.error('Usage: npm run copy-photo
 
 // For tests only: a separate local database folder.
 const persist = opt('persist-to') ? ['--persist-to', opt('persist-to')] : [];
-const wr = async (...a) => (await run('npx', ['wrangler', ...a, ...persist], { cwd: root, maxBuffer: 64 << 20 })).stdout;
+// Retry when Cloudflare refuses a request for a moment (e.g. code 7403 or a dropped connection).
+const TRANSIENT = /7403|7500|10000|fetch failed|ECONNRESET|ETIMEDOUT|socket hang up|Internal error|503|502/i;
+const wr = async (...a) => {
+  for (let attempt = 1; ; attempt++) {
+    try { return (await run('npx', ['wrangler', ...a, ...persist], { cwd: root, maxBuffer: 64 << 20 })).stdout; }
+    catch (e) {
+      const out = String(e.stdout || '') + String(e.stderr || '');
+      if (attempt >= 4 || !TRANSIENT.test(out)) throw new Error(out.trim().split('\n').slice(-3).join(' ') || e.message);
+      await new Promise(r => setTimeout(r, attempt * 5000));
+    }
+  }
+};
 // wrangler can print notices before its JSON; read from the first line that starts with "[".
 const fromJson = out => JSON.parse(out.slice(Math.max(0, out.search(/^\[/m))));
 const query = async q => fromJson(await wr('d1', 'execute', 'shop-db', target, '--json', '--command', q))[0].results;
