@@ -24,6 +24,7 @@ const SHOPS = { baan: 'Baan 125', chud: 'ChudPak' };
 // plain text, so renaming or retiring a type never changes past sales.
 const DEFAULT_PAYMENTS = [{ id: 'cash', label: 'Cash' }, { id: 'card', label: 'Card' }, { id: 'qr', label: 'QR code' }];
 const MAX_TRIES = 5;
+const EMAIL_RE = /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i;
 const PAUSE_MINUTES = [15, 60, 1440];
 const PASS_DAYS = { staff: 30, owner: 7 };
 const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
@@ -157,7 +158,7 @@ async function login(env, shop, pin) {
     const mins = PAUSE_MINUTES[Math.min(st.level, PAUSE_MINUTES.length - 1)];
     await save(0, st.level + 1, now + mins * 60000).run();
     await email(env, SHOPS[shop] + ' app: sign-in paused after ' + MAX_TRIES + ' wrong PINs',
-      `<p>Someone entered a wrong PIN ${MAX_TRIES} times in a row, so sign-in to the ${SHOPS[shop]} app is paused for ${mins >= 60 ? mins / 60 + ' hour(s)' : mins + ' minutes'}.</p><p>Phones and computers that are already signed in keep working. If this wasn’t you or your staff, change the PINs and use “Sign all out” in Settings.</p>`);
+      `<p>Someone entered a wrong PIN ${MAX_TRIES} times in a row, so sign-in to the ${SHOPS[shop]} app is paused for ${mins >= 60 ? mins / 60 + ' hour(s)' : mins + ' minutes'}.</p><p>Phones and computers that are already signed in keep working. If this wasn’t you or your staff, change the PINs and use “Sign all out” in Settings.</p>`, await recipients(env, shop));
     return { locked: mins };
   }
   await save(fails, st.level, 0).run();
@@ -181,11 +182,12 @@ async function signOutAll(env, shop) {
 
 // ---------- reading ----------
 async function readSettings(env, shop) {
-  const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE shop = ? AND key IN ('staff', 'lowAt', 'payments')").bind(shop).all();
-  const out = { staff: null, lowAt: null, payments: DEFAULT_PAYMENTS };
+  const { results } = await env.DB.prepare("SELECT key, value FROM settings WHERE shop = ? AND key IN ('staff', 'lowAt', 'payments', 'reportTo')").bind(shop).all();
+  const out = { staff: null, lowAt: null, payments: DEFAULT_PAYMENTS, reportTo: [] };
   for (const r of results) {
     if (r.key === 'staff') { try { out.staff = JSON.parse(r.value); } catch (e) { /* ignore */ } }
     if (r.key === 'lowAt') out.lowAt = Number(r.value) || null;
+    if (r.key === 'reportTo') { try { const v = JSON.parse(r.value); if (Array.isArray(v)) out.reportTo = v; } catch (e) { /* ignore */ } }
     if (r.key === 'payments') { try { const v = JSON.parse(r.value); if (Array.isArray(v) && v.length) out.payments = v; } catch (e) { /* ignore */ } }
   }
   return out;
@@ -202,6 +204,7 @@ async function getAll(env, shop, role) {
   ]);
   const products = p.results.map(r => { const o = Object.assign({}, r); delete o.shop; if (o.archived == null) o.archived = ''; if (role !== 'owner') delete o.costPrice; return o; });
   const sales = s.results.map(r => { const o = Object.assign({}, r); delete o.shop; if (o.costPrice == null) o.costPrice = ''; return o; });
+  if (role !== 'owner') delete settings.reportTo; // email addresses are owner-only
   return { version: VERSION, role, products, sales, settings };
 }
 
@@ -323,7 +326,15 @@ async function saveSettings(env, shop, d) {
     payments = payments.map(t => t.retired ? t : { id: t.id, label: t.label });
     if (!payments.some(t => !t.retired)) fail('Keep at least one payment type switched on.');
   }
+  let reportTo = null;
+  if (Array.isArray(d.reportTo)) {
+    reportTo = [...new Set(d.reportTo.map(x => String(x || '').trim().toLowerCase()).filter(Boolean))];
+    const bad = reportTo.find(x => !EMAIL_RE.test(x) || x.length > 120);
+    if (bad) fail(`“${bad.slice(0, 60)}” isn’t a valid email address.`);
+    if (reportTo.length > 10) fail('Up to 10 addresses can get the reports.');
+  }
   const ops = [];
+  if (reportTo) ops.push(putSetting(env, shop, 'reportTo', JSON.stringify(reportTo)));
   if (payments) ops.push(putSetting(env, shop, 'payments', JSON.stringify(payments)));
   if (staff) ops.push(putSetting(env, shop, 'staff', JSON.stringify(staff)));
   if (lowAt) ops.push(putSetting(env, shop, 'lowAt', lowAt));
@@ -390,13 +401,20 @@ async function clearTestData(env, shop, d) {
 }
 
 // ---------- email (optional; needs RESEND_API_KEY and REPORT_TO) ----------
-async function email(env, subject, html) {
-  if (!env.RESEND_API_KEY || !env.REPORT_TO) return { ok: false, error: 'Email isn’t set up yet (RESEND_API_KEY and REPORT_TO).' };
+// Who gets emails for a shop: the list the owner set in Settings, or else the
+// REPORT_TO secret on Cloudflare.
+async function recipients(env, shop) {
+  const set = (await readSettings(env, shop)).reportTo || [];
+  return set.length ? set : String(env.REPORT_TO || '').split(',').map(x => x.trim()).filter(Boolean);
+}
+async function email(env, subject, html, to) {
+  if (!env.RESEND_API_KEY) return { ok: false, error: 'Email isn’t set up yet: the Resend key (RESEND_API_KEY) is missing on Cloudflare.' };
+  if (!to || !to.length) return { ok: false, error: 'No one to send to yet. Add an email address under Email reports.' };
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RESEND_API_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: env.REPORT_FROM || 'Shop app <onboarding@resend.dev>', to: env.REPORT_TO.split(',').map(s => s.trim()).filter(Boolean), subject, html })
+      body: JSON.stringify({ from: env.REPORT_FROM || 'Shop app <onboarding@resend.dev>', to, subject, html })
     });
     if (r.ok) return { ok: true };
     let msg = '';
@@ -457,18 +475,19 @@ async function buildReport(env, shop, kind, now) {
 }
 async function sendDaily(env, shop, now) {
   const r = await buildReport(env, shop, 'daily', now);
-  if (r.n) await email(env, r.subject, r.html); // no email on a day with no sales
+  if (r.n) await email(env, r.subject, r.html, await recipients(env, shop)); // no email on a day with no sales
 }
 async function sendMonthly(env, shop, now) {
   const r = await buildReport(env, shop, 'monthly', now);
-  await email(env, r.subject, r.html);
+  await email(env, r.subject, r.html, await recipients(env, shop));
 }
 // Owner's "Send now" button in Settings: sends even on a day with no sales, and
 // reports Resend's answer, so it doubles as a test of the email setup.
 async function sendReportNow(env, shop, d) {
   const kind = d.kind === 'monthly' ? 'monthly' : 'daily';
   const r = await buildReport(env, shop, kind, new Date());
-  const sent = await email(env, r.subject, r.html);
+  const to = await recipients(env, shop);
+  const sent = await email(env, r.subject, r.html, to);
   if (!sent.ok) fail(sent.error);
-  return { success: true, kind, period: r.period, sales: r.n, recipients: env.REPORT_TO.split(',').filter(x => x.trim()).length };
+  return { success: true, kind, period: r.period, sales: r.n, recipients: to.length };
 }

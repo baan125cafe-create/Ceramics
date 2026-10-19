@@ -115,7 +115,8 @@
       S._settings = {
         shop: S.shop, lowAt: c.lowAtDefault || 2, // fixed for now (config.js), not set in Settings
         staff: Array.isArray(srv.staff) ? srv.staff : (Array.isArray(saved.staff) ? saved.staff : c.staffDefault.slice()),
-        payments: JSON.parse(JSON.stringify(pick(srv.payments, live() ? null : saved.payments, CFG.payments)))
+        payments: JSON.parse(JSON.stringify(pick(srv.payments, live() ? null : saved.payments, CFG.payments))),
+        reportTo: (Array.isArray(srv.reportTo) ? srv.reportTo : (Array.isArray(saved.reportTo) ? saved.reportTo : [])).slice()
       };
     }
     return S._settings;
@@ -123,9 +124,9 @@
   // Live: saved on the server (owner only), which sends back what it stored.
   const saveSettings = async () => {
     const s = settings();
-    if (!live()) { lsSet(settingsKey(), JSON.stringify({ lowAt: s.lowAt, staff: s.staff, payments: s.payments })); return true; }
+    if (!live()) { lsSet(settingsKey(), JSON.stringify({ lowAt: s.lowAt, staff: s.staff, payments: s.payments, reportTo: s.reportTo })); return true; }
     try {
-      const r = await backend().saveSettings(S.shop, { lowAt: s.lowAt, staff: s.staff, payments: s.payments });
+      const r = await backend().saveSettings(S.shop, Object.assign({ lowAt: s.lowAt, staff: s.staff, payments: s.payments }, S.role === 'owner' ? { reportTo: s.reportTo } : {}));
       if (data().settings) data().settings = r.settings;
       S._settings = null;
       return true;
@@ -185,6 +186,22 @@
     S.loading = false;
     render();
   }
+  // Sales made on other devices show up without pressing Refresh: reload every 2 minutes
+  // while the app is on screen, and when coming back to it. Skipped while a sheet or
+  // confirm box is open or something is being typed, so nothing in progress is lost.
+  function quietRefresh() {
+    if (!S.role || !live() || S.loading || document.hidden) return;
+    if ($('#sheet-root') && $('#sheet-root').innerHTML) return;
+    if ($('#confirm-root') && $('#confirm-root').innerHTML) return;
+    const a = document.activeElement;
+    if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && a.value) return;
+    if (Date.now() - (S.loadedAt[S.mode + ':' + S.shop] || 0) < 60000) return;
+    loadData(true);
+  }
+  setInterval(quietRefresh, 120000);
+  document.addEventListener('visibilitychange', quietRefresh);
+  window.addEventListener('focus', quietRefresh);
+
   const updatedLabel = () => {
     const t = S.loadedAt[S.mode + ':' + S.shop];
     if (!t) return '';
@@ -814,6 +831,15 @@
         <section class="card">
           <h2>Email reports</h2>
           <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time. Send one now to check the emails arrive.</p>
+          <div>
+            <div class="field" style="gap:8px">Send to</div>
+            <div class="chips">${settings().reportTo.length ? settings().reportTo.map((m, i) => `<span class="name-chip">${esc(m)}<button type="button" data-rmmail="${i}" aria-label="Stop sending to ${esc(m)}">${I.close}</button></span>`).join('') : '<span class="muted small">No addresses yet. Until one is added, reports go to the address set up on Cloudflare.</span>'}</div>
+          </div>
+          <form id="mail-form" class="toolbar" novalidate>
+            <label class="field" for="mail-new" style="flex:1 1 200px">Add an email address<input id="mail-new" type="email" inputmode="email" autocomplete="email" placeholder="e.g. milk@gmail.com" maxlength="120"></label>
+            <button type="submit" class="btn" style="align-self:flex-end">Add</button>
+          </form>
+          <div class="pin-err" id="mail-err" role="alert" style="color:var(--bad);text-align:left"></div>
           <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div><button type="button" class="btn" data-report="daily" ${live() ? '' : 'disabled'}>Send now</button></div>
           <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div><button type="button" class="btn" data-report="monthly" ${live() ? '' : 'disabled'}>Send now</button></div>
           ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
@@ -1022,6 +1048,16 @@
         .catch(e => { if (e.code === 'auth') { toast(e.message); return signOut(); } toast(e.message); })
         .finally(() => { sendReport.busy = false; if (S.route === 'settings') renderView(); });
     }
+    if (d.rmmail) {
+      const i = Number(d.rmmail), m = settings().reportTo[i];
+      return confirmAction({
+        title: `Stop sending reports to ${m}?`, danger: false,
+        body: 'This address won’t get the daily and monthly reports any more.',
+        keep: 'Nothing else changes. You can add it back any time.',
+        confirm: 'Remove address',
+        onConfirm: () => { settings().reportTo.splice(i, 1); saveSettings().then(ok => { renderView(); if (ok) toast(m + ' removed'); }); }
+      });
+    }
     if (d.ptoggle) {
       const t = payTypes()[Number(d.ptoggle)];
       if (!t.retired && activePays().length === 1) return toast('Keep at least one payment type switched on.');
@@ -1175,6 +1211,14 @@
     e.preventDefault();
     const f = e.target;
     const v = k => (f.elements[k] && f.elements[k].value || '').trim();
+    if (f.id === 'mail-form') {
+      const m = $('#mail-new').value.trim().toLowerCase(), err = $('#mail-err');
+      if (!m) return;
+      if (!/^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i.test(m)) return (err.textContent = 'That doesn’t look like an email address (like name@gmail.com).');
+      if (settings().reportTo.includes(m)) return (err.textContent = m + ' is already on the list.');
+      settings().reportTo.push(m);
+      return saveSettings().then(ok => { renderView(); if (ok) toast('Reports will also go to ' + m); });
+    }
     if (f.id === 'pay-form') {
       const name = $('#pay-new').value.trim().slice(0, 30);
       if (!name) return;
