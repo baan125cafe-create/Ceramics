@@ -724,6 +724,7 @@
     return `
       <div class="page-head"><div><h1>Settings</h1><div class="muted small">${esc(SHOPS[S.shop].name)} · only the owner can open this page</div></div></div>
       <div class="settings-grid">
+        <div class="settings-col">
         <section class="card">
           <h2>Access</h2>
           ${live() ? '<p class="muted small" style="margin:0">PINs are changed from a computer with the shop’s setup tools, so they never pass through this app.</p>' : ''}
@@ -762,6 +763,8 @@
             <button type="submit" class="btn" style="align-self:flex-end">Add</button>
           </form>
         </section>
+        </div>
+        <div class="settings-col">
         <section class="card">
           <h2>Data check</h2>
           <p class="muted small" style="margin:0">How the ${plural(chk.nSales, 'sale')} and ${plural(chk.nProducts, 'product')} ${live() ? 'in the shop data' : 'in this sample'} line up with the payment types. Nothing here changes data.</p>
@@ -792,6 +795,7 @@
           ${live() ? `<div class="set-row"><div><b>${Backends.live.local ? 'Local test copy' : 'Stored on Cloudflare'}</b><small style="word-break:break-all">${esc(Backends.live.api)}</small></div></div>`
             : '<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div><button type="button" class="btn" data-act="reset">Reset</button></div>'}
         </section>
+        </div>
       </div>`;
   }
 
