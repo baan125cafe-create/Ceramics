@@ -3,7 +3,7 @@
 One app for both shops, served by GitHub Pages. The data lives in the shop API on Cloudflare (`../worker`).
 
 - **Site root:** opens the app. The old `owner.html`, `staff.html` and `ChudPak_*.html` pages now redirect here too.
-- **Switching shops:** tap the shop name at the top of the menu. Each shop has its own PINs, so it asks for the other shop's PIN unless this phone already has a pass for it.
+- **Switching shops:** tap the shop name at the top of the menu. Each shop has its own PINs, so it asks for the other shop's PIN unless this device already has a pass for it.
 
 ## Run it locally
 
@@ -22,13 +22,13 @@ On the sign-in screen, pick a shop, then a data source:
 
 ## Who sees what
 
-- **Signing in:** a PIN gives this phone a sign-in pass (staff 30 days, owner 7 days).
+- **Signing in:** a PIN gives this device (phone or computer) a sign-in pass (staff 30 days, owner 7 days).
   - The server checks the pass and the role on **every** request.
   - The app takes the role from the server's answer, never from what the browser remembers. Editing the browser's storage can't open the owner screens or reveal costs.
 - **Staff:** see inventory and when things last sold (no costs or money totals). They can record sales and add products, but can't set a cost price, and only the owner can edit a product after it's saved.
 - **Owner only:** dashboard, sales, settings, restocking, editing, removing, clearing test data and "sign all out".
-- **Wrong PINs:** 5 in a row pause that shop's sign-in for 15 minutes, then 1 hour, then 24 hours, and email the owner. Phones already signed in keep working.
-- **Sales:** the server works out the price and total, saves the cost price on each new sale, and refuses to sell more than is on the shelf (even from two phones at once).
+- **Wrong PINs:** 5 in a row pause that shop's sign-in for 15 minutes, then 1 hour, then 24 hours, and email the owner. Devices already signed in keep working.
+- **Sales:** the server works out the price and total, saves the cost price on each new sale, and refuses to sell more than is on the shelf (even from two devices at once).
 - **Adding inventory:** "+ Add" adds to the count. **Remove** hides a product; its row stays, so old sales keep their cost.
 
 ## Payment types

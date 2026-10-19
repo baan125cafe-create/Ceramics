@@ -731,9 +731,36 @@
           <div>
             <div class="set-row"><div><b>Owner PIN</b><small>Everything, including this page</small></div><button type="button" class="btn" data-act="pin-later">Change</button></div>
             <div class="set-row"><div><b>Staff PIN</b><small>Inventory, add product and sell</small></div><button type="button" class="btn" data-act="pin-later">Change</button></div>
-            <div class="set-row"><div><b>Signed-in phones</b><small>Sign every phone out, for example after a staff change</small></div><button type="button" class="btn danger" data-act="signout-all">Sign all out</button></div>
+            <div class="set-row"><div><b>Signed-in devices</b><small>Sign out every phone and computer, for example after a staff change</small></div><button type="button" class="btn danger" data-act="signout-all">Sign all out</button></div>
           </div>
         </section>
+        <section class="card tool">
+          <h2>Data check</h2>
+          <p class="muted small" style="margin:0">How the ${plural(chk.nSales, 'sale')} and ${plural(chk.nProducts, 'product')} ${live() ? 'in the shop data' : 'in this sample'} line up with the payment types. Nothing here changes data.</p>
+          <div class="table-wrap" style="background:var(--surface-2)"><table>
+            <thead><tr><th>Saved as</th><th>Shown as</th><th class="num">Sales</th><th class="num">Total</th></tr></thead>
+            <tbody>${chk.pays.map(x => `<tr><td>${esc(x.raw)}</td><td><span class="pill pay-${x.info.kind}">${esc(x.info.kind === 'other' ? 'Other (' + x.raw + ')' : x.info.label)}</span></td><td class="num">${x.n.toLocaleString('en-US')}</td><td class="num">${money(x.total)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales yet.</td></tr>'}</tbody>
+          </table></div>
+          <ul class="check-list">
+            ${chk.spellings.length ? `<li>Staff names saved in more than one spelling (reports already merge them): ${chk.spellings.map(x => `<b>${esc(x.clean)}</b> (${x.variants.map(v => `"${esc(v[0])}" ×${v[1]}`).join(', ')})`).join('; ')}</li>` : '<li>Staff names are spelled consistently.</li>'}
+            <li>${plural(chk.noCost, 'product')} without a cost price; ${plural(chk.noCostSale, 'sale')} can’t be costed.</li>
+            ${chk.orphan ? `<li>${plural(chk.orphan, 'sale')} ${chk.orphan === 1 ? 'points' : 'point'} to a product that no longer exists (still counted in revenue).</li>` : ''}
+            ${chk.badDate ? `<li>${plural(chk.badDate, 'sale')} ${chk.badDate === 1 ? 'has a date the app can’t read, so it doesn’t' : 'have a date the app can’t read, so they don’t'} show in any period.</li>` : ''}
+            ${chk.tests ? `<li>${plural(chk.tests, 'test row')} ([TEST]) are left out of every total.</li>` : ''}
+            ${chk.negative ? `<li>${plural(chk.negative, 'product')} ${chk.negative === 1 ? 'shows' : 'show'} a stock count below zero.</li>` : ''}
+          </ul>
+        </section>
+        <section class="card tool">
+          <h2>Test data</h2>
+          ${testCard()}
+        </section>
+        <section class="card tool">
+          <h2>${live() ? 'Shop data' : 'Sample data'}</h2>
+          ${live() ? `<div class="set-row"><div><b>${Backends.live.local ? 'Local test copy' : 'Stored on Cloudflare'}</b><small style="word-break:break-all">${esc(Backends.live.api)}</small></div></div>`
+            : '<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div><button type="button" class="btn" data-act="reset">Reset</button></div>'}
+        </section>
+        </div>
+        <div class="settings-col">
         <section class="card">
           <h2>Staff names</h2>
           <p class="muted small" style="margin:0">Staff tap their name when they sell, so reports don’t split one person into "Nok" and "nok". ${live() ? 'Saved with the shop data, so every phone gets the same list.' : 'Saved on this device for now.'}</p>
@@ -763,37 +790,10 @@
             <button type="submit" class="btn" style="align-self:flex-end">Add</button>
           </form>
         </section>
-        </div>
-        <div class="settings-col">
-        <section class="card">
-          <h2>Data check</h2>
-          <p class="muted small" style="margin:0">How the ${plural(chk.nSales, 'sale')} and ${plural(chk.nProducts, 'product')} ${live() ? 'in the shop data' : 'in this sample'} line up with the payment types. Nothing here changes data.</p>
-          <div class="table-wrap" style="background:var(--surface-2)"><table>
-            <thead><tr><th>Saved as</th><th>Shown as</th><th class="num">Sales</th><th class="num">Total</th></tr></thead>
-            <tbody>${chk.pays.map(x => `<tr><td>${esc(x.raw)}</td><td><span class="pill pay-${x.info.kind}">${esc(x.info.kind === 'other' ? 'Other (' + x.raw + ')' : x.info.label)}</span></td><td class="num">${x.n.toLocaleString('en-US')}</td><td class="num">${money(x.total)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales yet.</td></tr>'}</tbody>
-          </table></div>
-          <ul class="check-list">
-            ${chk.spellings.length ? `<li>Staff names saved in more than one spelling (reports already merge them): ${chk.spellings.map(x => `<b>${esc(x.clean)}</b> (${x.variants.map(v => `"${esc(v[0])}" ×${v[1]}`).join(', ')})`).join('; ')}</li>` : '<li>Staff names are spelled consistently.</li>'}
-            <li>${plural(chk.noCost, 'product')} without a cost price; ${plural(chk.noCostSale, 'sale')} can’t be costed.</li>
-            ${chk.orphan ? `<li>${plural(chk.orphan, 'sale')} ${chk.orphan === 1 ? 'points' : 'point'} to a product that no longer exists (still counted in revenue).</li>` : ''}
-            ${chk.badDate ? `<li>${plural(chk.badDate, 'sale')} ${chk.badDate === 1 ? 'has a date the app can’t read, so it doesn’t' : 'have a date the app can’t read, so they don’t'} show in any period.</li>` : ''}
-            ${chk.tests ? `<li>${plural(chk.tests, 'test row')} ([TEST]) are left out of every total.</li>` : ''}
-            ${chk.negative ? `<li>${plural(chk.negative, 'product')} ${chk.negative === 1 ? 'shows' : 'show'} a stock count below zero.</li>` : ''}
-          </ul>
-        </section>
-        <section class="card">
-          <h2>Test data</h2>
-          ${testCard()}
-        </section>
         <section class="card">
           <h2>Appearance</h2>
           <div class="set-row"><div><b>Light or dark</b><small>Automatic follows this phone or laptop. Saved on this device only.</small></div></div>
           <div class="seg" role="group" aria-label="Appearance" style="max-width:360px">${[['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([k, t]) => `<button type="button" data-themepick="${k}" aria-pressed="${getTheme() === k}">${t}</button>`).join('')}</div>
-        </section>
-        <section class="card">
-          <h2>${live() ? 'Shop data' : 'Sample data'}</h2>
-          ${live() ? `<div class="set-row"><div><b>${Backends.live.local ? 'Local test copy' : 'Stored on Cloudflare'}</b><small style="word-break:break-all">${esc(Backends.live.api)}</small></div></div>`
-            : '<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div><button type="button" class="btn" data-act="reset">Reset</button></div>'}
         </section>
         </div>
       </div>`;
@@ -1043,20 +1043,20 @@
       })();
       case 'signout-now': return signOut();
       case 'signout': return confirmAction({
-        title: 'Sign out of this phone?', danger: false,
+        title: 'Sign out of this device?', danger: false,
         body: `You'll need the ${S.role === 'owner' ? 'owner' : 'staff'} PIN to get back in.`,
         keep: 'Nothing in the shop data changes.',
         confirm: 'Sign out',
         onConfirm: signOut
       });
       case 'signout-all': return confirmAction({
-        title: 'Sign every phone out?',
-        body: 'All staff phones and this one will need the PIN again. Anyone mid-sale has to sign back in first.',
+        title: 'Sign out every device?',
+        body: 'Every signed-in phone and computer, including this one, will need the PIN again. Anyone mid-sale has to sign back in first.',
         keep: 'Sales and stock are not affected. Use this after a staff member leaves or a PIN is shared.',
         confirm: 'Sign all out',
         onConfirm: () => {
-          if (live()) return write(() => backend().signOutAll(S.shop), () => { toast('Every phone is signed out.'); signOut(); });
-          toast('In the live app, every phone is now signed out.');
+          if (live()) return write(() => backend().signOutAll(S.shop), () => { toast('Every device is signed out.'); signOut(); });
+          toast('In the live app, every device is now signed out.');
         }
       });
       case 'reset': return confirmAction({
