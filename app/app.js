@@ -27,6 +27,20 @@
     if (!d) { const t = new Date(s.saleDate || s.createdAt); d = isNaN(t) ? '' : bkkDate(t); }
     return (s._day = d);
   };
+  // Shop time (Bangkok), 24-hour: "Oct 19 - 23:33". The time is shown only when the sale
+  // was recorded on its sale day; a sale entered later for an earlier day shows its date only.
+  const saleTime = s => {
+    const t = new Date(s.createdAt);
+    if (isNaN(t) || bkkDate(t) !== saleDay(s)) return '';
+    return t.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false });
+  };
+  const saleWhen = s => {
+    const d = saleDay(s);
+    if (!d) return '—';
+    const day = MONTHS[Number(d.slice(5, 7)) - 1] + ' ' + Number(d.slice(8, 10)) + (d.slice(0, 4) !== today().slice(0, 4) ? ', ' + d.slice(0, 4) : '');
+    const time = saleTime(s);
+    return time ? day + ' - ' + time : day;
+  };
   const saleHour = s => { const t = new Date(s.createdAt || s.saleDate); return isNaN(t) ? 12 : bkkHour(t); };
   // "nok", "Nok " and "NOK" are one person.
   const cleanName = n => { n = String(n || '').trim().replace(/\s+/g, ' '); return n ? n[0].toUpperCase() + n.slice(1).toLowerCase() : 'Unknown'; };
@@ -698,7 +712,7 @@
     $('#sales-table').innerHTML = rows.length ? `
       <table>
         <thead><tr><th>Date</th><th>Product</th><th class="num">Qty</th><th class="num">Total</th><th>Paid</th><th>Staff</th><th>Note</th></tr></thead>
-        <tbody>${page.map(s => { const pi = payInfo(s.paymentMethod); return `<tr><td>${dayLabel(saleDay(s))}</td><td>${isTestSale(s) ? '<span class="pill test">TEST</span> ' : ''}${esc(s.productName)}</td><td class="num">${s.quantity || 1}</td><td class="num">${money(s.total)}</td><td><span class="pill pay-${pi.kind}">${esc(pi.label)}</span></td><td>${esc(cleanName(s.soldBy))}</td><td class="muted">${esc(s.note || '')}</td></tr>`; }).join('')}</tbody>
+        <tbody>${page.map(s => { const pi = payInfo(s.paymentMethod); return `<tr><td class="when">${esc(saleWhen(s))}</td><td>${isTestSale(s) ? '<span class="pill test">TEST</span> ' : ''}${esc(s.productName)}</td><td class="num">${s.quantity || 1}</td><td class="num">${money(s.total)}</td><td><span class="pill pay-${pi.kind}">${esc(pi.label)}</span></td><td>${esc(cleanName(s.soldBy))}</td><td class="muted">${esc(s.note || '')}</td></tr>`; }).join('')}</tbody>
         <tfoot><tr><td colspan="2">${rows.length > 300 ? `Showing newest 300 of ${rows.length.toLocaleString('en-US')}` : 'Total'}</td><td class="num">${items.toLocaleString('en-US')}</td><td class="num">${money(total)}</td><td colspan="3"></td></tr></tfoot>
       </table>` : '<p class="empty">No sales match.</p>';
   }
@@ -706,8 +720,8 @@
   function exportCsv() {
     const { R, rows } = salesRows();
     const cell = v => { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-    const lines = [['Date', 'Product', 'Qty', 'Price', 'Total', 'Paid', 'Paid (as saved)', 'Staff', 'Note'].join(',')]
-      .concat(rows.map(s => [saleDay(s), s.productName, s.quantity || 1, s.sellPrice, s.total, payInfo(s.paymentMethod).label, s.paymentMethod, cleanName(s.soldBy), s.note || ''].map(cell).join(',')));
+    const lines = [['Date', 'Time', 'Product', 'Qty', 'Price', 'Total', 'Paid', 'Paid (as saved)', 'Staff', 'Note'].join(',')]
+      .concat(rows.map(s => [saleDay(s), saleTime(s), s.productName, s.quantity || 1, s.sellPrice, s.total, payInfo(s.paymentMethod).label, s.paymentMethod, cleanName(s.soldBy), s.note || ''].map(cell).join(',')));
     const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
