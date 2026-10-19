@@ -9,7 +9,7 @@ window.SHOP_CONFIG = {
       name: 'Baan 125',
       sub: 'Hangout · ceramics',
       icon: 'pot',      // placeholder on product photos
-      logo: 'cup',      // shop logo: menu, sign-in, tab icon
+      logo: 'cup',      // shop logo (ceramic mug): menu, sign-in, title
       staffDefault: ['PB', 'Lin', 'Milk'],
       lowAtDefault: 2
     },

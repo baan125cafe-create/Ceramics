@@ -66,7 +66,7 @@
     out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>',
     warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
     swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4L3 8l4 4"/><path d="M3 8h14"/><path d="M17 20l4-4-4-4"/><path d="M21 16H7"/></svg>',
-    cup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10h12v3.5A5.5 5.5 0 0 1 10.5 19h-1A5.5 5.5 0 0 1 4 13.5V10z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H15.6"/><path d="M3 21.5h15"/><path d="M8 3.5c-.8.9.8 1.6 0 2.5M12 3.5c-.8.9.8 1.6 0 2.5"/></svg>',
+    cup: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 5h11l-.6 12.2A2.9 2.9 0 0 1 12 20H8a2.9 2.9 0 0 1-2.9-2.8L4.5 5z"/><path d="M15.4 8.5h1.6a2.8 2.8 0 0 1 0 5.6h-1.9"/><path d="M4.8 9.5c1.6.9 3.3.9 5 0s3.4-.9 5.4 0"/></svg>',
     dress: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 2.5v3M14.5 2.5v3"/><path d="M9.5 5.5h5l-.7 3.5 4.7 12.5h-13L10.2 9l-.7-3.5z"/><path d="M10.2 9h3.6"/></svg>',
     store: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 9 5 4h14l1.5 5"/><path d="M3.5 9h17v1.5a2.8 2.8 0 0 1-5.6 0 2.8 2.8 0 0 1-5.8 0 2.8 2.8 0 0 1-5.6 0V9z"/><path d="M5 13v7.5h14V13"/><path d="M10 20.5V16h4v4.5"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>',
@@ -74,16 +74,10 @@
     shirt: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3l-5 3 2 5 3-1v11h8V10l3 1 2-5-5-3a4 4 0 0 1-8 0z"/></svg>'
   };
 
-  // Shop logo (coffee cup / dress), browser tab icon and page title follow the chosen shop.
+  // Shop logo: a ceramic mug for Baan 125, a dress for ChudPak (see config.js).
   const logo = (k, cls) => `<span class="shop-logo${cls ? ' ' + cls : ''}" aria-hidden="true">${I[(SHOPS[k] || {}).logo] || I.store}</span>`;
-  function setTabIcon(k) {
-    const svg = (I[(SHOPS[k] || {}).logo] || I.store).replace('stroke="currentColor"', 'stroke="#A8532A"').replace('aria-hidden="true"', 'xmlns="http://www.w3.org/2000/svg"');
-    const icon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#F6EBDD"/><g transform="translate(4 4)">${svg.replace('<svg', '<svg width="24" height="24"')}</g></svg>`;
-    let l = document.querySelector('link[rel="icon"]');
-    if (!l) { l = document.createElement('link'); l.rel = 'icon'; document.head.appendChild(l); }
-    l.type = 'image/svg+xml'; l.href = 'data:image/svg+xml,' + encodeURIComponent(icon);
-    document.title = SHOPS[k] ? SHOPS[k].name + ' · Shop' : 'Shop';
-  }
+  // The browser tab keeps the general shop icon (set in index.html); the title names the shop.
+  function setTabIcon(k) { document.title = SHOPS[k] ? SHOPS[k].name + ' · Shop' : 'Shop'; }
 
   // ---------- state ----------
   const SHOPS = CFG.shops;
