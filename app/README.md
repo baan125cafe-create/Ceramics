@@ -51,7 +51,7 @@ Start a product name with **[TEST]** to try things out. Test products and their 
 
 | File | What it does |
 | --- | --- |
-| `config.js` | Everything that differs per shop (name, icon, saved-link key, default staff, "running low" level) and the payment types |
+| `config.js` | Everything that differs per shop (name, icon, saved-link key, default staff, "running low" level, or `lowStock: false` to show only sold out, as ChudPak does) and the payment types |
 | `core.js` | Shared helpers, payment-label mapping, and the data sources (sample / live sheet) |
 | `app.js` | The screens: sign-in, dashboard, stock, sell, add product, sales, settings |
 | `demo-data.js` | Sample data generator |

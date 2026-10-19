@@ -85,7 +85,7 @@
       try { saved = JSON.parse(lsGet(settingsKey()) || '{}') || {}; } catch (e) { saved = {}; }
       const c = SHOPS[S.shop];
       const srv = isV6() && data().settings ? data().settings : {};
-      S._settings = { shop: S.shop, lowAt: num(srv.lowAt) || num(saved.lowAt) || c.lowAtDefault, staff: Array.isArray(srv.staff) ? srv.staff : (Array.isArray(saved.staff) ? saved.staff : c.staffDefault.slice()) };
+      S._settings = { shop: S.shop, lowAt: num(srv.lowAt) || num(saved.lowAt) || c.lowAtDefault || 2, staff: Array.isArray(srv.staff) ? srv.staff : (Array.isArray(saved.staff) ? saved.staff : c.staffDefault.slice()) };
     }
     return S._settings;
   }
@@ -96,7 +96,9 @@
     if (isV6() && S.role === 'owner') backend().saveSettings(S.shop, { lowAt: s.lowAt, staff: s.staff }).catch(e => toast(e.message));
   };
   const staffNames = () => settings().staff;
-  const status = p => num(p.quantity) <= 0 ? 'out' : (num(p.quantity) <= settings().lowAt ? 'low' : 'ok');
+  // Shops with lowStock: false (ChudPak) only show in stock / sold out.
+  const lowOn = () => SHOPS[S.shop].lowStock !== false;
+  const status = p => num(p.quantity) <= 0 ? 'out' : (lowOn() && num(p.quantity) <= settings().lowAt ? 'low' : 'ok');
 
   // Appearance: 'auto' follows the device; 'light'/'dark' are saved on this device only.
   const THEME_KEY = 'b125_theme';
@@ -479,7 +481,7 @@
           ${st.noCostInStock ? `<div class="muted small">${plural(st.noCostInStock, 'product')} in stock with no cost price ${st.noCostInStock === 1 ? 'is' : 'are'} not in "at cost" or "profit".</div>` : ''}
           <div class="counts">
             <button type="button" class="count-btn" data-go="stock" data-filter="ok"><b>${st.counts.ok}</b>in stock</button>
-            <button type="button" class="count-btn low" data-go="stock" data-filter="low"><b>${st.counts.low}</b>running low</button>
+            ${lowOn() ? `<button type="button" class="count-btn low" data-go="stock" data-filter="low"><b>${st.counts.low}</b>running low</button>` : ''}
             <button type="button" class="count-btn out" data-go="stock" data-filter="out"><b>${st.counts.out}</b>sold out</button>
           </div>
         </section>
@@ -510,7 +512,8 @@
     const prods = shown();
     const c = { all: prods.length, ok: 0, low: 0, out: 0, nocost: 0 };
     prods.forEach(p => { c[status(p)]++; if (p.costPrice <= 0) c.nocost++; });
-    const defs = [['all', 'All'], ['ok', 'In stock'], ['low', 'Running low'], ['out', 'Sold out'], ['nocost', 'No cost price']];
+    if (S.ui.stockFilter === 'low' && !lowOn()) S.ui.stockFilter = 'all';
+    const defs = [['all', 'All'], ['ok', 'In stock'], ['low', 'Running low'], ['out', 'Sold out'], ['nocost', 'No cost price']].filter(d => d[0] !== 'low' || lowOn());
     $('#stock-chips').innerHTML = defs.filter(d => d[0] !== 'nocost' || c.nocost).map(([k, t]) => `<button type="button" class="chip" data-filter-chip="${k}" aria-pressed="${S.ui.stockFilter === k}">${t}<span class="count">${c[k]}</span></button>`).join('');
     const q = S.ui.stockQ.trim().toLowerCase();
     const f = S.ui.stockFilter;
@@ -693,8 +696,8 @@
         <section class="card">
           <h2>Shop rules</h2>
           <div>
-            <div class="set-row"><div><b>"Running low" at</b><small>Flag a product on the dashboard and stock list</small></div>
-              <label class="field" for="low-at" style="flex-direction:row;align-items:center"><span class="sr-only">Running low at</span><select id="low-at">${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${settings().lowAt === n ? 'selected' : ''}>${n} or fewer</option>`).join('')}</select></label></div>
+            ${lowOn() ? `<div class="set-row"><div><b>"Running low" at</b><small>Flag a product on the dashboard and stock list</small></div>
+              <label class="field" for="low-at" style="flex-direction:row;align-items:center"><span class="sr-only">Running low at</span><select id="low-at">${[1, 2, 3, 4, 5].map(n => `<option value="${n}" ${settings().lowAt === n ? 'selected' : ''}>${n} or fewer</option>`).join('')}</select></label></div>` : `<div class="set-row"><div><b>Stock alerts</b><small>Only "sold out" is shown for this shop</small></div><span class="muted">Sold out</span></div>`}
             <div class="set-row"><div><b>Payment types</b><small>Shown when recording a sale</small></div><span class="muted">${CFG.payments.map(p => esc(p.label)).join(' · ')}</span></div>
           </div>
         </section>

@@ -185,7 +185,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 .shelf span { font-size: 11px; color: var(--muted); }
 .shelf div.pos span { color: var(--good); }
 .shelf b { font-size: 15px; }
-.counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.counts { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 8px; }
 .count-btn { min-height: 56px; border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 11px; }
 .count-btn b { font-size: 18px; }
 .count-btn.low { background: var(--warn-bg); color: var(--warn); border-color: transparent; }

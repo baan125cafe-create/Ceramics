@@ -18,7 +18,8 @@ window.SHOP_CONFIG = {
       icon: 'shirt',
       apiKey: 'chudpak_api_url',
       staffDefault: ['PB', 'Lin', 'Milk'],
-      lowAtDefault: 2
+      // Clothes are mostly one-offs, so ChudPak only tracks "sold out".
+      lowStock: false
     }
   },
   // Payment types offered when recording a sale. Older rows saved as "credit"
