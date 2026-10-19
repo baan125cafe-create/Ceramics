@@ -779,12 +779,12 @@
         </section>
         <section class="card">
           <h2>Payment types</h2>
-          <p class="muted small" style="margin:0">Shown when recording a sale. Each sale keeps the type it was saved with, so renaming or switching one off never changes past sales.</p>
-          <div>${payTypes().map((t, i) => `<div class="set-row"><div style="flex:1 1 auto;min-width:0">
+          <p class="muted small" style="margin:0">Shown when recording a sale. Tap a name to rename it. Each sale keeps the type it was saved with, so renaming or switching one off never changes past sales.</p>
+          <div class="pay-types">${payTypes().map((t, i) => `<div class="pay-type">
               <label class="sr-only" for="pt-${i}">Name of payment type ${i + 1}</label>
               <input id="pt-${i}" class="inline-input" data-ptname="${i}" value="${esc(t.label)}" maxlength="30" ${t.retired ? 'disabled' : ''}>
-              <small>${t.retired ? 'Switched off · past sales still show this name' : 'Tap the name to rename it'}</small></div>
-              <button type="button" class="btn" data-ptoggle="${i}">${t.retired ? 'Switch on' : 'Switch off'}</button></div>`).join('')}</div>
+              <button type="button" class="btn" data-ptoggle="${i}">${t.retired ? 'Switch on' : 'Switch off'}</button>
+              ${t.retired ? '<small>Switched off · past sales still show this name</small>' : ''}</div>`).join('')}</div>
           <form id="pay-form" class="toolbar" novalidate>
             <label class="field" for="pay-new" style="flex:1 1 180px">Add a type<input id="pay-new" placeholder="e.g. Alipay" maxlength="30"></label>
             <button type="submit" class="btn" style="align-self:flex-end">Add</button>
