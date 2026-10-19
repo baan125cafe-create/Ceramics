@@ -71,7 +71,7 @@ function run_(action, d, role) {
     case 'login': return login_(String(d.pin || ''));
     case 'getAll': return getAll_(ss, role);
     case 'addSale': return write_(() => addSale_(ss, d));
-    case 'addProduct': return write_(() => addProduct_(ss, d));
+    case 'addProduct': return write_(() => addProduct_(ss, d, role));
     case 'uploadImage': return uploadImage_(d);
     case 'addStock': return write_(() => addStock_(ss, d));
     case 'updateProduct': return write_(() => updateProduct_(ss, d));
@@ -381,10 +381,11 @@ function addStock_(ss, d) {
   return { success: true, quantity: fields.quantity };
 }
 
-function addProduct_(ss, d) {
+// Staff add photo, name, quantity and sell price. Only the owner sets cost.
+function addProduct_(ss, d, role) {
   const name = String(d.name || '').trim().slice(0, 120);
   if (!name) fail_('Give the product a name.');
-  const sell = Number(d.sellPrice), cost = d.costPrice === '' || d.costPrice == null ? 0 : Number(d.costPrice), qty = int_(d.quantity);
+  const sell = Number(d.sellPrice), cost = role !== 'owner' || d.costPrice === '' || d.costPrice == null ? 0 : Number(d.costPrice), qty = int_(d.quantity);
   if (!(sell > 0)) fail_('Enter a sell price above 0.');
   if (!(cost >= 0)) fail_('Cost price must be 0 or more.');
   if (!(qty >= 0)) fail_('Enter how many are on the shelf (0 or more).');

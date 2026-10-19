@@ -216,7 +216,9 @@
       top: Object.values(byProduct).sort((a, b) => b.rev - a.rev).slice(0, 5),
       staff: Object.values(byStaff).sort((a, b) => b.rev - a.rev),
       buckets, atCost, atSell, potential, noCostInStock, counts,
-      noCost: prods.filter(p => p.costPrice <= 0)
+      noCost: prods.filter(p => p.costPrice <= 0),
+      // Only products that have sold need a cost; unsold collection pieces don't affect profit.
+      soldNoCost: prods.filter(p => p.costPrice <= 0 && sales.some(s => s.productId === p.id))
     };
   }
   function niceMax(v) {
@@ -418,10 +420,10 @@
     const mid = Math.floor(st.buckets.length / 2);
     const pays = PAY_ORDER.filter(k => st.pay[k] > 0).map(k => ({ k, v: st.pay[k], p: pct(st.pay[k], st.revenue) }));
     const topMax = Math.max(1, ...st.top.map(t => t.rev));
-    const missing = st.noCost.length;
+    const missing = st.soldNoCost.length;
     const notice = missing || st.unknownN ? `
       <div class="notice">${I.warn}<div>
-        <b>${plural(missing, 'product')} ${missing === 1 ? 'has' : 'have'} no cost price</b>
+        <b>${plural(missing, 'product')} sold without a cost price</b>
         <span>${st.unknownN ? `${plural(st.unknownN, 'sale')} in this period (${money(st.unknownRev)}) can’t be costed, so ${st.unknownN === 1 ? 'it is' : 'they are'} left out of profit and margin.` : 'Add them so new sales can be costed.'}</span>
         ${missing ? '<button type="button" class="link-btn" data-go="stock" data-filter="nocost">Add cost prices</button>' : ''}
       </div></div>` : '';
@@ -594,10 +596,10 @@
         </div>
         <label class="field" for="add-name">Product name<input id="add-name" name="name" required placeholder="e.g. Lotus mug"></label>
         <label class="field" for="add-size">Size<input id="add-size" name="size" placeholder="e.g. 300ml"></label>
-        <div class="grid-2">
+        ${S.role === 'owner' ? `<div class="grid-2">
           <label class="field" for="add-cost">Cost price (฿)<input id="add-cost" name="costPrice" type="number" min="0" inputmode="decimal" placeholder="150"></label>
           <label class="field" for="add-sell">Sell price (฿)<input id="add-sell" name="sellPrice" type="number" min="0" inputmode="decimal" placeholder="450" required></label>
-        </div>
+        </div>` : `<label class="field" for="add-sell">Sell price (฿)<input id="add-sell" name="sellPrice" type="number" min="0" inputmode="decimal" placeholder="450" required><span class="hint">The owner adds the cost price. Once saved, only the owner can change it.</span></label>`}
         <label class="field" for="add-qty">Quantity<input id="add-qty" name="quantity" type="number" min="0" inputmode="numeric" placeholder="10" required></label>
         <div class="muted small" id="add-margin" aria-live="polite"></div>
         <div class="pin-err" id="add-err" role="alert" style="color:var(--bad)"></div>
@@ -1029,7 +1031,7 @@
       if (S.route === 'sell') fillSell();
       if (S.route === 'sales') fillSales();
     }
-    if (e.target.id === 'add-cost' || e.target.id === 'add-sell') {
+    if ((e.target.id === 'add-cost' || e.target.id === 'add-sell') && $('#add-cost')) {
       const c = num($('#add-cost').value), s = num($('#add-sell').value);
       $('#add-margin').textContent = c > 0 && s > 0 ? `Profit ${money(s - c)} per piece · ${Math.round((s - c) / s * 100)}% margin` : '';
     }
@@ -1048,7 +1050,7 @@
       if (!v('name')) return (err.textContent = 'Give the product a name.');
       if (!(num(v('sellPrice')) > 0)) return (err.textContent = 'Enter a sell price above 0.');
       if (v('quantity') === '' || num(v('quantity')) < 0) return (err.textContent = 'Enter how many are on the shelf (0 or more).');
-      return write(() => backend().addProduct(S.shop, { name: v('name'), size: v('size'), costPrice: v('costPrice'), sellPrice: v('sellPrice'), quantity: v('quantity'), imageUrl: ($('#add-preview').dataset.img || ''), addedBy: S.role === 'owner' ? 'Owner' : (S.lastSeller || 'Staff') }),
+      return write(() => backend().addProduct(S.shop, { name: v('name'), size: v('size'), costPrice: S.role === 'owner' ? v('costPrice') : '', sellPrice: v('sellPrice'), quantity: v('quantity'), imageUrl: ($('#add-preview').dataset.img || ''), addedBy: S.role === 'owner' ? 'Owner' : (S.lastSeller || 'Staff') }),
         () => { toast('Product added'); go('stock'); }, '#add-err');
     }
     if (f.id === 'edit-form') {

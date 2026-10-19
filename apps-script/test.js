@@ -44,7 +44,7 @@ ok(C({ action: 'addStock', token: owner.token, productId: 'PRD-1', add: 6, costP
 
 // Test data: only [TEST] rows can ever be cleared.
 const tp = C({ action: 'addProduct', token: staff.token, name: '[TEST] mug', sellPrice: 100, quantity: 5, costPrice: 40 });
-ok(tp.success, 'staff adds a test product');
+ok(tp.success && tp.product.costPrice === 0, 'staff adds a test product; cost from a staff phone is ignored');
 ok(C({ action: 'addSale', token: staff.token, productId: tp.product.id, quantity: 1, paymentMethod: 'card', soldBy: 'Milk' }).success, 'test sale on a test product');
 const prev = C({ action: 'previewTestData', token: owner.token });
 ok(prev.products.length === 1 && prev.sales.length === 1, 'preview lists only test rows');

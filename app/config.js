@@ -9,7 +9,7 @@ window.SHOP_CONFIG = {
       // Same browser key the old owner/staff pages use, so a device that already
       // saved this shop's script link connects without setup.
       apiKey: 'baan125_api_url',
-      staffDefault: ['Milk'],
+      staffDefault: ['PB', 'Lin', 'Milk'],
       lowAtDefault: 2
     },
     chud: {
@@ -17,7 +17,7 @@ window.SHOP_CONFIG = {
       sub: 'Clothing',
       icon: 'shirt',
       apiKey: 'chudpak_api_url',
-      staffDefault: ['Milk'],
+      staffDefault: ['PB', 'Lin', 'Milk'],
       lowAtDefault: 2
     }
   },
