@@ -39,8 +39,14 @@ Use test PINs locally. Don't reuse the real shop PINs here: the local `.dev.vars
 
 ## Set up Cloudflare (once)
 
-1. **Create the account.** Go to [dash.cloudflare.com/sign-up](https://dash.cloudflare.com/sign-up). Use an email the shop will keep (Milk's, or a shop address) so the business owns it. The Free plan is enough. **Don't add a payment card**: on the Free plan, Cloudflare can't charge anything. If a daily limit were ever reached, requests would pause until midnight UTC and Cloudflare would send an email. No data is lost.
-2. **Add Paul as a member.** In the dashboard, open **Manage account → Members → Invite**. Enter Paul's email and give it the **Super Administrator** role for the whole account. Paul accepts the email invite. Both of you can then see usage and manage everything.
+1. **Create the account.** Go to [dash.cloudflare.com/sign-up](https://dash.cloudflare.com/sign-up). Choose the Free plan.
+   - **Card:** R2 (photos) asks for a card even on the free tier. You're billed only for use above the free amounts, and this setup can't realistically reach them:
+     - The photo bucket isn't public, so every photo goes through the API.
+     - The API's free plan stops at 100,000 requests a day, so photo reads stay well under R2's 10 million free reads a month.
+     - Uploads need a PIN sign-in and are at most 4 MB each.
+   - **Spending alert:** add one under **Manage Account → Billing → Billable Usage → Create budget alert** (for example $1). It only sends an email; Cloudflare has no hard spending cap.
+   - **Limits:** if a Workers or D1 daily limit is reached, requests pause until midnight UTC and Cloudflare sends an email. No data is lost.
+2. **Add Milk as a member.** In the dashboard, open **Manage account → Members → Invite**. Enter Milk's email and give her the **Super Administrator** role for the whole account. Once she accepts, the business can always reach its own data.
 3. **Sign in from the Mac.** In `~/Ideas/Ceramics/worker`, run `npx wrangler login`. A browser window opens to approve access. If you belong to more than one Cloudflare account, `npx wrangler whoami` shows which one is in use.
 4. **Create the database and photo bucket:**
    ```sh
@@ -54,7 +60,11 @@ Use test PINs locally. Don't reuse the real shop PINs here: the local `.dev.vars
    npm run deploy                        # prints the API address
    npm run set-pin -- --shop baan --role owner     # and staff; then chud owner and staff
    ```
-   Put the printed address in `app/config.js` as `api`.
+   Copy the printed address (it looks like `https://shop-api.<your-subdomain>.workers.dev`) into `app/config.js`:
+   ```js
+   api: 'https://shop-api.<your-subdomain>.workers.dev',
+   ```
+   Then commit and push. GitHub Pages serves the change.
 
 ## Moving the real data over (the switch-over day)
 
