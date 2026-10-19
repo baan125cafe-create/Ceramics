@@ -195,7 +195,7 @@
     async deleteProduct(shop, id) { return this.call(shop, 'archiveProduct', { id }); },
     async saveSettings(shop, f) { return this.call(shop, 'saveSettings', f); },
     async signOutAll(shop) { const r = await this.call(shop, 'signOutAll'); this.dropPass(shop); return r; },
-    async sendReport(shop, kind) { return this.call(shop, 'sendReport', { kind }); },
+    async sendReport(shop, kind, to) { return this.call(shop, 'sendReport', to ? { kind, to } : { kind }); },
     async previewTestData(shop) { return this.call(shop, 'previewTestData'); },
     async clearTestData(shop, ids) { return this.call(shop, 'clearTestData', ids); }
   };

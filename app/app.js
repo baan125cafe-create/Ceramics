@@ -115,8 +115,7 @@
       S._settings = {
         shop: S.shop, lowAt: c.lowAtDefault || 2, // fixed for now (config.js), not set in Settings
         staff: Array.isArray(srv.staff) ? srv.staff : (Array.isArray(saved.staff) ? saved.staff : c.staffDefault.slice()),
-        payments: JSON.parse(JSON.stringify(pick(srv.payments, live() ? null : saved.payments, CFG.payments))),
-        reportTo: (Array.isArray(srv.reportTo) ? srv.reportTo : (Array.isArray(saved.reportTo) ? saved.reportTo : [])).slice()
+        payments: JSON.parse(JSON.stringify(pick(srv.payments, live() ? null : saved.payments, CFG.payments)))
       };
     }
     return S._settings;
@@ -124,9 +123,9 @@
   // Live: saved on the server (owner only), which sends back what it stored.
   const saveSettings = async () => {
     const s = settings();
-    if (!live()) { lsSet(settingsKey(), JSON.stringify({ lowAt: s.lowAt, staff: s.staff, payments: s.payments, reportTo: s.reportTo })); return true; }
+    if (!live()) { lsSet(settingsKey(), JSON.stringify({ lowAt: s.lowAt, staff: s.staff, payments: s.payments })); return true; }
     try {
-      const r = await backend().saveSettings(S.shop, Object.assign({ lowAt: s.lowAt, staff: s.staff, payments: s.payments }, S.role === 'owner' ? { reportTo: s.reportTo } : {}));
+      const r = await backend().saveSettings(S.shop, { lowAt: s.lowAt, staff: s.staff, payments: s.payments });
       if (data().settings) data().settings = r.settings;
       S._settings = null;
       return true;
@@ -827,15 +826,11 @@
         <section class="card">
           <h2>Email reports</h2>
           <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time. Send one now to check the emails arrive.</p>
-          <div>
-            <div class="field" style="gap:8px">Send to</div>
-            <div class="chips">${settings().reportTo.length ? settings().reportTo.map((m, i) => `<span class="name-chip">${esc(m)}<button type="button" data-rmmail="${i}" aria-label="Stop sending to ${esc(m)}">${I.close}</button></span>`).join('') : '<span class="muted small">No addresses yet. Until one is added, reports go to the address set up on Cloudflare.</span>'}</div>
-          </div>
-          <form id="mail-form" class="toolbar" novalidate>
-            <label class="field" for="mail-new" style="flex:1 1 200px">Add an email address<input id="mail-new" type="email" inputmode="email" autocomplete="email" placeholder="e.g. milk@gmail.com" maxlength="120"></label>
-            <button type="submit" class="btn" style="align-self:flex-end">Add</button>
-          </form>
-          <div class="pin-err" id="mail-err" role="alert" style="color:var(--bad);text-align:left"></div>
+          <label class="field" for="report-to">Send a test to (optional)
+            <input id="report-to" type="email" inputmode="email" autocomplete="email" placeholder="Leave empty for the usual address" maxlength="120" value="${esc(S.ui.reportTo || '')}" data-input="reportTo">
+            <span class="hint">Used for this one email only and not saved. Scheduled reports always go to the address set up on Cloudflare.</span>
+          </label>
+          <div class="pin-err" id="mail-err" role="alert" style="color:var(--bad);text-align:left">${esc(S.ui.reportErr || '')}</div>
           <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div><button type="button" class="btn" data-report="daily" ${live() ? '' : 'disabled'}>Send now</button></div>
           <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div><button type="button" class="btn" data-report="monthly" ${live() ? '' : 'disabled'}>Send now</button></div>
           ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
@@ -1033,21 +1028,15 @@
     }
     if (d.report) {
       if (!live() || sendReport.busy) return;
+      const to = (($('#report-to') || {}).value || '').trim().toLowerCase(), err = $('#mail-err');
+      S.ui.reportErr = ''; if (err) err.textContent = '';
+      if (to && !/^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i.test(to)) { S.ui.reportErr = 'That doesn’t look like an email address (like name@gmail.com).'; if (err) err.textContent = S.ui.reportErr; return; }
+      S.ui.reportTo = to;
       sendReport.busy = true; el.disabled = true; el.textContent = 'Sending…';
-      return backend().sendReport(S.shop, d.report)
-        .then(r => toast(`Sent the ${r.kind === 'monthly' ? r.period + ' report' : 'daily report'} (${plural(r.sales, 'sale')}) to ${plural(r.recipients, 'address', 'addresses')}`))
-        .catch(e => { if (e.code === 'auth') { toast(e.message); return signOut(); } toast(e.message); })
+      return backend().sendReport(S.shop, d.report, to)
+        .then(r => toast(`Sent the ${r.kind === 'monthly' ? r.period + ' report' : 'daily report'} (${plural(r.sales, 'sale')}) to ${r.to || plural(r.recipients, 'address', 'addresses')}`))
+        .catch(e => { if (e.code === 'auth') { toast(e.message); return signOut(); } S.ui.reportErr = e.message; })
         .finally(() => { sendReport.busy = false; if (S.route === 'settings') renderView(); });
-    }
-    if (d.rmmail) {
-      const i = Number(d.rmmail), m = settings().reportTo[i];
-      return confirmAction({
-        title: `Stop sending reports to ${m}?`, danger: false,
-        body: 'This address won’t get the daily and monthly reports any more.',
-        keep: 'Nothing else changes. You can add it back any time.',
-        confirm: 'Remove address',
-        onConfirm: () => { settings().reportTo.splice(i, 1); saveSettings().then(ok => { renderView(); if (ok) toast(m + ' removed'); }); }
-      });
     }
     if (d.ptoggle) {
       const t = payTypes()[Number(d.ptoggle)];
@@ -1201,14 +1190,6 @@
     e.preventDefault();
     const f = e.target;
     const v = k => (f.elements[k] && f.elements[k].value || '').trim();
-    if (f.id === 'mail-form') {
-      const m = $('#mail-new').value.trim().toLowerCase(), err = $('#mail-err');
-      if (!m) return;
-      if (!/^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i.test(m)) return (err.textContent = 'That doesn’t look like an email address (like name@gmail.com).');
-      if (settings().reportTo.includes(m)) return (err.textContent = m + ' is already on the list.');
-      settings().reportTo.push(m);
-      return saveSettings().then(ok => { renderView(); if (ok) toast('Reports will also go to ' + m); });
-    }
     if (f.id === 'pay-form') {
       const name = $('#pay-new').value.trim().slice(0, 30);
       if (!name) return;

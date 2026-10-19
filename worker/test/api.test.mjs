@@ -133,11 +133,8 @@ try {
   // Manual report: owner only; without an email key it explains what's missing.
   ok((await C('baan', { action: 'sendReport', token: staff.token, kind: 'daily' })).code === 'forbidden', 'staff cannot send reports');
   { const sr = await C('baan', { action: 'sendReport', token: owner.token, kind: 'daily' }); ok(/isn’t set up/.test(sr.error || ''), 'send report explains missing email setup ' + JSON.stringify(sr)); }
-  ok(/isn’t a valid email/.test((await C('baan', { action: 'saveSettings', token: owner.token, reportTo: ['milk@example.com', 'not an email'] })).error || ''), 'invalid report address refused');
-  const rt = await C('baan', { action: 'saveSettings', token: owner.token, reportTo: [' Milk@Example.com ', 'paul@example.com', 'milk@example.com'] });
-  ok(JSON.stringify(rt.settings.reportTo) === '["milk@example.com","paul@example.com"]', 'report addresses saved, tidied ' + JSON.stringify(rt.settings));
-  ok(!('reportTo' in (await C('baan', { action: 'getAll', token: staff.token })).settings), 'staff never receive report addresses');
-  ok((await C('baan', { action: 'getAll', token: owner.token })).settings.reportTo.length === 2, 'owner sees report addresses');
+  ok(/look like an email/.test((await C('baan', { action: 'sendReport', token: owner.token, kind: 'daily', to: 'not an email' })).error || ''), 'test address must be a valid email');
+  ok(!('reportTo' in (await C('baan', { action: 'getAll', token: owner.token })).settings), 'no report addresses are stored');
 
   // Reports: run the daily job (no email key here, so it just must not fail).
   const cron = await fetch(API + '/__scheduled?cron=30+16+*+*+*');
