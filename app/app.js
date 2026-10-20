@@ -169,7 +169,7 @@
     const t = themePref(), root = document.documentElement;
     if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
     const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', dark ? '#3A2D22' : '#FFFFFF'); if (t !== 'auto') m.removeAttribute('media'); });
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', dark ? '#3A2D22' : '#EDE1CF'); if (t !== 'auto') m.removeAttribute('media'); });
   }
   applyTheme();
 
@@ -360,7 +360,7 @@
     const multi = Object.keys(SHOPS).length > 1, o = multi ? SHOPS[otherShop()] : null;
     return `<header class="topbar">
             <div class="topbar-row">
-              <div class="brand-mini"><span class="brand">${logo(S.shop)}${esc(shop.name)}</span><span class="brand-sub">${roleName}</span></div>
+              <div class="brand-mini" title="${roleName}"><span class="brand">${logo(S.shop)}${esc(shop.name)}</span></div>
               <div class="topbar-actions">
                 ${multi ? `<button type="button" class="shop-pill" data-act="switch-shop" aria-label="Switch to ${esc(o.name)}" title="Switch to ${esc(o.name)}">${logo(otherShop(), 'tiny')}<span>${esc(o.name)}</span></button>` : ''}
                 <button type="button" class="icon-btn" data-act="refresh" aria-label="Refresh data" title="Refresh data">${I.refresh}</button>
