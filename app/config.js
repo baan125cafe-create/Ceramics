@@ -13,6 +13,8 @@ window.SHOP_CONFIG = {
       sub: 'Hangout · ceramics',
       icon: 'pot',      // placeholder on product photos
       logo: 'cup',      // shop logo (ceramic mug): menu, sign-in, title
+      nameHint: 'Lotus mug', // example text in the Add product form
+      sizeHint: '300 ml',
       staffDefault: ['PB', 'Lin', 'Milk'],
       lowAtDefault: 2
     },
@@ -21,6 +23,8 @@ window.SHOP_CONFIG = {
       sub: 'Clothing',
       icon: 'shirt',
       logo: 'dress',
+      nameHint: 'Linen dress',
+      sizeHint: 'M or Free size', // Thai shops use S–XL and "Free size" (one size)
       staffDefault: ['PB', 'Lin', 'Milk'],
       // Clothes are mostly one-offs, so ChudPak only tracks "sold out".
       lowStock: false

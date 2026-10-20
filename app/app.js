@@ -714,8 +714,8 @@
           <label class="btn" for="add-photo">Choose photo</label>
           <input id="add-photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" class="sr-only">
         </div>
-        <label class="field" for="add-name">Product name<input id="add-name" name="name" required placeholder="e.g. Lotus mug"></label>
-        <label class="field" for="add-size">Size<input id="add-size" name="size" placeholder="e.g. 300ml"></label>
+        <label class="field" for="add-name">Product name<input id="add-name" name="name" required placeholder="e.g. ${esc(SHOPS[S.shop].nameHint || 'Lotus mug')}"></label>
+        <label class="field" for="add-size">Size<input id="add-size" name="size" placeholder="e.g. ${esc(SHOPS[S.shop].sizeHint || '300 ml')}"></label>
         ${S.role === 'owner' ? `<div class="grid-2">
           <label class="field" for="add-cost">Cost price (฿)<input id="add-cost" name="costPrice" type="number" min="0" inputmode="decimal" placeholder="150"></label>
           <label class="field" for="add-sell">Sell price (฿)<input id="add-sell" name="sellPrice" type="number" min="0" inputmode="decimal" placeholder="450" required></label>
@@ -1041,7 +1041,7 @@
       ${sheetHead('Edit product', esc(label(p)), p)}
       <form id="edit-form" style="display:flex;flex-direction:column;gap:12px" novalidate>
         <label class="field" for="edit-name">Product name<input id="edit-name" name="name" value="${esc(p.name)}" required></label>
-        <label class="field" for="edit-size">Size<input id="edit-size" name="size" value="${esc(p.size)}"></label>
+        <label class="field" for="edit-size">Size<input id="edit-size" name="size" value="${esc(p.size)}" placeholder="e.g. ${esc(SHOPS[S.shop].sizeHint || '300 ml')}"></label>
         <div class="grid-2">
           <label class="field" for="edit-cost">Cost price (฿)<input id="edit-cost" name="costPrice" type="number" min="0" value="${p.costPrice || ''}" placeholder="Missing"></label>
           <label class="field" for="edit-sell">Sell price (฿)<input id="edit-sell" name="sellPrice" type="number" min="0" value="${p.sellPrice > 0 ? p.sellPrice : ''}" placeholder="${notForSale(p) ? 'Optional' : 'Required'}"></label>
