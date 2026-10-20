@@ -65,6 +65,8 @@
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>',
     undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
     info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>',
     // Price tag: "Ready to sell" on not-for-sale items.
     tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
@@ -110,6 +112,48 @@
   // What a product sells for, or a hint when it has no price yet.
   const priceText = p => notForSale(p) ? (p.sellPrice > 0 ? money(p.sellPrice) : 'No price') : (p.sellPrice > 0 ? money(p.sellPrice) : 'Price at sale');
   // Round icon button for an action (Settings, inventory rows). The label is read out and shown on hover.
+  // ----- dropdown picker (product in Record a sale, Inventory filter) -----
+  // A button that opens a themed list under it, with an optional search box. About 5 rows show; the rest scroll.
+  const pickers = {};
+  function pickRow(id, o, selected) {
+    return `<li role="option" aria-selected="${selected}"><button type="button" class="picker-opt" data-pick="${id}" data-val="${esc(o.value)}">${o.thumb || ''}<span class="picker-text"><b>${esc(o.label)}</b>${o.sub ? `<small>${esc(o.sub)}</small>` : ''}</span>${o.meta != null ? `<span class="picker-meta">${esc(o.meta)}</span>` : ''}<span class="picker-tick">${selected ? I.check : ''}</span></button></li>`;
+  }
+  function picker(id, cfg) {
+    pickers[id] = cfg;
+    const cur = cfg.options.find(o => o.value === cfg.value);
+    return `<div class="picker" id="pk-${id}">
+      <button type="button" class="picker-btn" data-pick-toggle="${id}" aria-haspopup="listbox" aria-expanded="false"${cfg.labelledBy ? ` aria-labelledby="${cfg.labelledBy} pkb-${id}"` : ` aria-label="${esc(cfg.ariaLabel || '')}"`}>
+        ${cur && cur.thumb ? cur.thumb : ''}<span class="picker-text" id="pkb-${id}">${cur ? `<b>${esc(cfg.prefix || '')}${esc(cur.label)}</b>${cur.sub ? `<small>${esc(cur.sub)}</small>` : ''}` : `<span class="picker-placeholder">${esc(cfg.placeholder || 'Choose…')}</span>`}</span>${cur && cur.meta != null ? `<span class="picker-meta">${esc(cur.meta)}</span>` : ''}${I.chevron}
+      </button>
+      <div class="picker-panel" hidden>
+        ${cfg.search ? `<label class="picker-search">${I.search}<span class="sr-only">${esc(cfg.searchPlaceholder || 'Search')}</span><input type="search" data-pick-q="${id}" placeholder="${esc(cfg.searchPlaceholder || 'Search')}" autocomplete="off" enterkeyhint="search"></label>` : ''}
+        <ul class="picker-list" role="listbox" id="pkl-${id}"></ul>
+      </div>
+    </div>`;
+  }
+  function fillPicker(id, text) {
+    const cfg = pickers[id], list = $('#pkl-' + id);
+    if (!cfg || !list) return;
+    const t = String(text || '').trim().toLowerCase();
+    const opts = cfg.options.filter(o => !t || (o.label + ' ' + (o.sub || '')).toLowerCase().includes(t));
+    list.innerHTML = opts.length ? opts.map(o => pickRow(id, o, o.value === cfg.value)).join('') : `<li class="picker-empty">No match for “${esc(text)}”</li>`;
+  }
+  function closePickers() {
+    document.querySelectorAll('.picker.open').forEach(w => { w.classList.remove('open'); $('.picker-panel', w).hidden = true; $('.picker-btn', w).setAttribute('aria-expanded', 'false'); });
+  }
+  function openPicker(id) {
+    const w = $('#pk-' + id);
+    if (!w) return;
+    const was = w.classList.contains('open');
+    closePickers();
+    if (was) return;
+    w.classList.add('open'); $('.picker-panel', w).hidden = false; $('.picker-btn', w).setAttribute('aria-expanded', 'true');
+    fillPicker(id, '');
+    const sel = $('[aria-selected="true"]', w); if (sel) sel.scrollIntoView({ block: 'nearest' });
+    // On computers the search box gets the cursor; on phones the list shows first (no keyboard until they tap Search).
+    const s = $('[data-pick-q]', w); if (s && matchMedia('(pointer: fine)').matches) s.focus({ preventScroll: true });
+  }
+
   // Who to ask for a PIN change (PINs are set on Cloudflare, not in the app).
   const PIN_CONTACT = 'paul.leejw@gmail.com';
   const actBtn = (icon, labelText, attrs, tone) => `<button type="button" class="icon-btn add-btn${tone ? ' ' + tone : ''}" aria-label="${esc(labelText)}" title="${esc(labelText)}" ${attrs}>${I[icon]}</button>`;
@@ -634,9 +678,9 @@
         <div><h1>Inventory</h1><div class="muted small">${plural(prods.length, 'product')} · ${inStock} in stock</div></div>
         <button type="button" class="btn dark" data-go="add">${I.plus}Product</button>
       </div>
-      <div class="toolbar">
+      <div class="toolbar two">
         <label class="search">${I.search}<span class="sr-only">Search products</span><input id="stock-q" type="search" placeholder="Search products" value="${esc(S.ui.stockQ)}" data-input="stockQ"></label>
-        <div class="chips" role="group" aria-label="Filter" id="stock-chips"></div>
+        <div id="stock-chips"></div>
       </div>
       <ul class="list" id="stock-list"></ul>`;
   }
@@ -646,7 +690,11 @@
     prods.forEach(p => { if (notForSale(p)) c.nfs++; else c[status(p)]++; if (p.costPrice <= 0) c.nocost++; });
     if (S.ui.stockFilter === 'low' && !lowOn()) S.ui.stockFilter = 'all';
     const defs = [['all', 'All'], ['ok', 'In stock'], ['low', 'Running low'], ['out', 'Sold out'], ['nfs', 'Not for sale'], ['nocost', 'No cost price']].filter(d => d[0] !== 'low' || lowOn());
-    $('#stock-chips').innerHTML = defs.filter(d => (d[0] !== 'nocost' && d[0] !== 'nfs') || c[d[0]] || S.ui.stockFilter === d[0]).map(([k, t]) => `<button type="button" class="chip" data-filter-chip="${k}" aria-pressed="${S.ui.stockFilter === k}">${t}<span class="count">${c[k]}</span></button>`).join('');
+    $('#stock-chips').innerHTML = picker('stockf', {
+      value: S.ui.stockFilter, ariaLabel: 'Show', prefix: 'Show: ',
+      options: defs.filter(d => (d[0] !== 'nocost' && d[0] !== 'nfs') || c[d[0]] || S.ui.stockFilter === d[0]).map(([k, t]) => ({ value: k, label: t, meta: c[k].toLocaleString('en-US') })),
+      onPick: v => { S.ui.stockFilter = v; fillOwnerStock(); }
+    });
     const q = S.ui.stockQ.trim().toLowerCase();
     const f = S.ui.stockFilter;
     const match = p => f === 'all' || (f === 'nocost' ? p.costPrice <= 0 : f === 'nfs' ? notForSale(p) : !notForSale(p) && status(p) === f);
@@ -983,9 +1031,13 @@
     const noPrice = p && !(p.sellPrice > 0);
     openSheet(`
       ${sheetHead('Record a sale', p ? `${priceText(p)}${p.sellPrice > 0 ? ' each' : ''} · ${p.quantity} left` : 'Choose the product', p)}
-      <label class="field" for="sell-product">Product
-        <select id="sell-product"><option value="">Choose…</option>${inStock.map(x => `<option value="${esc(x.id)}" ${x.id === sell.productId ? 'selected' : ''}>${esc(label(x))} · ${priceText(x)} · ${x.quantity} left</option>`).join('')}</select>
-      </label>
+      <div class="field"><span id="sell-product-label">Product</span>
+        ${picker('sell', {
+          value: sell.productId, labelledBy: 'sell-product-label', placeholder: 'Choose the product', search: true, searchPlaceholder: 'Search products',
+          options: inStock.map(x => ({ value: x.id, label: label(x), sub: `${priceText(x)} · ${x.quantity} left`, thumb: thumb(x).replace('class="thumb"', 'class="thumb sm"') })),
+          onPick: v => { noteNow(); sell.productId = v; sell.qty = 1; sell.price = ''; drawSell(); }
+        })}
+      </div>
       ${noPrice ? `<label class="field" for="sell-price">Price per piece (฿)<input id="sell-price" type="number" min="1" inputmode="decimal" value="${esc(sell.price)}" placeholder="This item has no price yet" required><span class="hint">Used for this sale only. The owner sets the product’s price.</span></label>` : ''}
       <div class="panel"><div class="sum-row" style="align-items:center"><span style="font-weight:600">Quantity</span>
         <div class="stepper" style="gap:14px"><button type="button" data-qty="-1" aria-label="One fewer" style="width:44px;height:44px">−</button><output style="font-size:30px;min-width:40px" aria-live="polite">${sell.qty}</output><button type="button" class="plus" data-qty="1" aria-label="One more" style="width:44px;height:44px" ${!p || sell.qty >= max ? 'disabled' : ''}>+</button></div></div></div>
@@ -1109,8 +1161,12 @@
   const noteNow = () => { const n = $('#sell-note'); if (n && sell) sell.note = n.value; };
 
   document.addEventListener('click', e => {
+    // A tap outside an open dropdown closes it.
+    if (!e.target.closest('.picker')) closePickers();
     const el = e.target.closest('button, [data-scrim], [data-confirm-scrim]');
     if (!el) return;
+    if (el.dataset.pickToggle) return openPicker(el.dataset.pickToggle);
+    if (el.dataset.pick) { const cfg = pickers[el.dataset.pick]; closePickers(); if (cfg) cfg.onPick(el.dataset.val); return; }
     if (el.dataset.confirmScrim && e.target === el) return closeConfirm();
     if (el.dataset.scrim && e.target === el) return closeSheet();
     const d = el.dataset;
@@ -1274,7 +1330,6 @@
   }
 
   document.addEventListener('change', e => {
-    if (e.target.id === 'sell-product') { noteNow(); sell.productId = e.target.value; sell.qty = 1; sell.price = ''; drawSell(); }
     if (e.target.id === 'low-at') { settings().lowAt = Number(e.target.value); saveSettings().then(ok => ok && toast(live() ? 'Saved' : 'Saved on this device')); }
     if (e.target.dataset && e.target.dataset.ptname != null) {
       const t = payTypes()[Number(e.target.dataset.ptname)], v = e.target.value.trim().slice(0, 30);
@@ -1291,6 +1346,7 @@
   });
 
   document.addEventListener('input', e => {
+    if (e.target.dataset && e.target.dataset.pickQ) return fillPicker(e.target.dataset.pickQ, e.target.value);
     if (e.target.closest && e.target.closest('#add-form')) updateAddForm();
     if (e.target.id === 'sell-price' && sell) {
       // Update the total as the price is typed, without redrawing (keeps the keyboard open).
@@ -1350,6 +1406,7 @@
   });
 
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && $('.picker.open')) { const w = $('.picker.open'); closePickers(); const b = $('.picker-btn', w); if (b) b.focus(); return; }
     if (e.key === 'Escape') { if ($('#confirm-root') && $('#confirm-root').innerHTML) return closeConfirm(); if ($('#sheet-root') && $('#sheet-root').innerHTML) closeSheet(); }
     if (!S.role && $('.keypad') && !(e.target && e.target.tagName === 'INPUT')) {
       if (/^[0-9]$/.test(e.key)) pressKey(e.key);
