@@ -163,9 +163,15 @@
   const lowOn = () => SHOPS[S.shop].lowStock !== false;
   const status = p => num(p.quantity) <= 0 ? 'out' : (lowOn() && num(p.quantity) <= settings().lowAt ? 'low' : 'ok');
 
-  // Appearance always follows the device (light or dark). An older saved choice is cleared.
-  try { localStorage.removeItem('b125_theme'); } catch (e) { /* ignore */ }
-  document.documentElement.removeAttribute('data-theme');
+  // Appearance: Automatic (follows the device), Light or Dark. Saved on this device only.
+  const themePref = () => { const t = lsGet('b125_theme'); return t === 'light' || t === 'dark' ? t : 'auto'; };
+  function applyTheme() {
+    const t = themePref(), root = document.documentElement;
+    if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+    const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', dark ? '#3A2D22' : '#FFFFFF'); if (t !== 'auto') m.removeAttribute('media'); });
+  }
+  applyTheme();
 
   const ROUTES = {
     owner: [['dashboard', 'Dashboard', 'chart'], ['stock', 'Inventory', 'box'], ['add', 'Add product', 'add'], ['sales', 'Sales', 'list'], ['settings', 'Settings', 'gear']],
@@ -341,12 +347,28 @@
 
   // ---------- rendering ----------
   const app = $('#app');
-  function strip() {
-    if (!live()) return `<div class="demo-strip">Demo mode · sample data only · nothing here touches the real shop data</div>`;
-    if (Backends.live.local) return `<div class="demo-strip live">Local test · shop API on this computer · changes stay on this computer</div>`;
+  // Which data this is. Full text across the top on computers; a one-line version inside the phone header.
+  function strip(short) {
+    if (!live()) return `<div class="demo-strip">${short ? 'Sample data · nothing here touches the real shop' : 'Demo mode · sample data only · nothing here touches the real shop data'}</div>`;
+    if (Backends.live.local) return `<div class="demo-strip live">${short ? 'Local test copy on this computer' : 'Local test · shop API on this computer · changes stay on this computer'}</div>`;
     // Staff don't need the reminder; the owner sees it because she edits products and can add test items.
     if (S.role !== 'owner') return '';
-    return `<div class="demo-strip real">Live · changes save to the real ${esc(SHOPS[S.shop].name)} data · to try things out, put “test” in a product name</div>`;
+    return `<div class="demo-strip real">${short ? `Live · saves to the real ${esc(SHOPS[S.shop].name)} data` : `Live · changes save to the real ${esc(SHOPS[S.shop].name)} data · to try things out, put “test” in a product name`}</div>`;
+  }
+  // Phone header: shop name on the left; switch-shop, refresh and sign-out on the right. It stays at the top when scrolling.
+  function phoneHeader(shop, roleName) {
+    const multi = Object.keys(SHOPS).length > 1, o = multi ? SHOPS[otherShop()] : null;
+    return `<header class="topbar">
+            <div class="topbar-row">
+              <div class="brand-mini"><span class="brand">${logo(S.shop)}${esc(shop.name)}</span><span class="brand-sub">${roleName}</span></div>
+              <div class="topbar-actions">
+                ${multi ? `<button type="button" class="shop-pill" data-act="switch-shop" aria-label="Switch to ${esc(o.name)}" title="Switch to ${esc(o.name)}">${logo(otherShop(), 'tiny')}<span>${esc(o.name)}</span></button>` : ''}
+                <button type="button" class="icon-btn" data-act="refresh" aria-label="Refresh data" title="Refresh data">${I.refresh}</button>
+                <button type="button" class="icon-btn" data-act="signout" aria-label="Sign out" title="Sign out">${I.out}</button>
+              </div>
+            </div>
+            ${strip(true)}
+          </header>`;
   }
   function render() {
     setTabIcon(S.shop);
@@ -376,13 +398,7 @@
           </div>
         </aside>
         <div class="content">
-          <header class="topbar">
-            ${brandSwitch(shop, roleName)}
-            <div style="display:flex">
-              <button type="button" class="icon-btn" data-act="refresh" aria-label="Refresh data">${I.refresh}</button>
-              <button type="button" class="icon-btn" data-act="signout" aria-label="Sign out">${I.out}</button>
-            </div>
-          </header>
+          ${phoneHeader(shop, roleName)}
           <main class="main" id="view"></main>
         </div>
       </div>
@@ -401,9 +417,16 @@
       <span class="brand">${logo(S.shop)}${esc(shop.name)}</span><span class="brand-sub">${roleName} · ${esc(shop.sub)}</span>
       <span class="switch-hint">${I.swap}<span>Switch to</span><span class="switch-to">${logo(otherShop(), 'tiny')}${esc(o.name)}</span></span></button>`;
   }
+  // A fresh start for the other shop: searches, filters, half-filled forms and open sheets
+  // don't carry over. The dashboard and sales periods (today / 7 days / ...) are kept.
+  function resetForShop() {
+    closeSheet(); closeConfirm();
+    sell = restock = onSale = editing = null;
+    Object.assign(S.ui, { stockFilter: 'all', stockQ: '', staffTab: 'in', sellQ: '', salesPay: 'all', salesQ: '', reportErr: '' });
+  }
   function switchShop() {
     const next = otherShop(), route = S.route;
-    closeSheet();
+    resetForShop();
     S.shop = next; sess.set('b125_shop', next); S._settings = null; S.pin = ''; S.pinErr = '';
     if (live()) {
       // Each shop has its own PINs: go straight in only if this phone has a pass for it.
@@ -820,6 +843,7 @@
         <section class="card tool">
           <h2>Data check</h2>
           <p class="muted small" style="margin:0">How the ${plural(chk.nSales, 'sale')} and ${plural(chk.nProducts, 'product')} ${live() ? 'in the shop data' : 'in this sample'} line up with the payment types. Nothing here changes data.</p>
+          <p class="muted small" style="margin:0">${live() ? `${Backends.live.local ? 'Local test copy on this computer' : 'Stored on Cloudflare'} · <span style="word-break:break-all">${esc(Backends.live.api)}</span>` : 'Sample data in this browser only'}</p>
           <div class="table-wrap" style="background:var(--surface-2)"><table>
             <thead><tr><th>Saved as</th><th>Shown as</th><th class="num">Sales</th><th class="num">Total</th></tr></thead>
             <tbody>${chk.pays.map(x => `<tr><td>${esc(x.raw)}</td><td><span class="pill pay-${x.info.kind}">${esc(x.info.kind === 'other' ? 'Other (' + x.raw + ')' : x.info.label)}</span></td><td class="num">${x.n.toLocaleString('en-US')}</td><td class="num">${money(x.total)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales yet.</td></tr>'}</tbody>
@@ -837,10 +861,13 @@
           <h2>Test data</h2>
           ${testCard()}
         </section>
-        <section class="card tool">
-          <h2>${live() ? 'Shop data' : 'Sample data'}</h2>
-          ${live() ? `<div class="set-row"><div><b>${Backends.live.local ? 'Local test copy' : 'Stored on Cloudflare'}</b><small style="word-break:break-all">${esc(Backends.live.api)}</small></div></div>`
-            : `<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div>${actBtn('undo', 'Reset sample data', 'data-act="reset"')}</div>`}
+        <section class="card">
+          <h2>Email reports</h2>
+          <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time, to the address set up on Cloudflare. Send one now to check they arrive.</p>
+          <div class="pin-err" id="mail-err" role="alert" style="color:var(--bad);text-align:left">${esc(S.ui.reportErr || '')}</div>
+          <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div>${actBtn('send', 'Send today’s report now', `data-report="daily" ${live() ? '' : 'disabled'}`)}</div>
+          <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div>${actBtn('send', 'Send last month’s report now', `data-report="monthly" ${live() ? '' : 'disabled'}`)}</div>
+          ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
         </section>
         </div>
         <div class="settings-col">
@@ -855,28 +882,21 @@
         </section>
         <section class="card">
           <h2>Payment types</h2>
-          <p class="muted small" style="margin:0">Shown when recording a sale. Tap a name to rename it. Each sale keeps the type it was saved with, so renaming or switching one off never changes past sales.</p>
+          <p class="muted small" style="margin:0">Shown when recording a sale. Tap a name to rename it. Each sale keeps the type it was saved with, so renaming or switching one off never changes past sales; a switched-off type stays greyed out here so those sales still show its name.</p>
           <div class="pay-types">${payTypes().map((t, i) => `<div class="pay-type">
               <label class="sr-only" for="pt-${i}">Name of payment type ${i + 1}</label>
               <input id="pt-${i}" class="inline-input" data-ptname="${i}" value="${esc(t.label)}" maxlength="30" ${t.retired ? 'disabled' : ''}>
               <button type="button" class="switch" role="switch" aria-checked="${!t.retired}" data-ptoggle="${i}" aria-label="${esc(t.label)}: ${t.retired ? 'switched off' : 'switched on'}" title="${t.retired ? 'Switch on' : 'Switch off'}"><i></i></button>
-              ${t.retired ? '<small>Switched off · past sales still show this name</small>' : ''}</div>`).join('')}</div>
+</div>`).join('')}</div>
           <form id="pay-form" class="add-row" novalidate>
             <label class="field" for="pay-new">Add a type<input id="pay-new" class="inline-input" placeholder="e.g. Alipay" maxlength="30"></label>
             <button type="submit" class="icon-btn add-btn wide" aria-label="Add this payment type" title="Add">${I.plus}</button>
           </form>
         </section>
         <section class="card">
-          <h2>Email reports</h2>
-          <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time. Send one now to check the emails arrive.</p>
-          <label class="field" for="report-to">Send a test to (optional)
-            <input id="report-to" type="email" inputmode="email" autocomplete="email" placeholder="Leave empty for the usual address" maxlength="120" value="${esc(S.ui.reportTo || '')}" data-input="reportTo">
-            <span class="hint">Used for this one email only and not saved. Scheduled reports always go to the address set up on Cloudflare.</span>
-          </label>
-          <div class="pin-err" id="mail-err" role="alert" style="color:var(--bad);text-align:left">${esc(S.ui.reportErr || '')}</div>
-          <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div>${actBtn('send', 'Send today’s report now', `data-report="daily" ${live() ? '' : 'disabled'}`)}</div>
-          <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div>${actBtn('send', 'Send last month’s report now', `data-report="monthly" ${live() ? '' : 'disabled'}`)}</div>
-          ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
+          <h2>Appearance</h2>
+          <p class="muted small" style="margin:0">Automatic follows this phone or computer’s light or dark setting. Saved on this device only.</p>
+          <div class="seg" role="group" aria-label="Appearance">${[['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([k, t]) => `<button type="button" data-theme-pick="${k}" aria-pressed="${themePref() === k}">${t}</button>`).join('')}</div>
         </section>
         </div>
       </div>`;
@@ -887,7 +907,8 @@
     const names = tp.map(p => label(p)).slice(0, 6);
     return `<p class="muted small" style="margin:0">To try things out, add a product with <b>test</b> in its name (any case, like “Test mug”) and sell it. Test rows are left out of every total and report.</p>
       <div class="set-row"><div><b>${plural(tp.length, 'test product')} · ${plural(ts.length, 'test sale')}</b><small>${names.length ? esc(names.join(', ')) + (tp.length > names.length ? '…' : '') : 'Nothing to clear.'}</small></div>
-      ${actBtn('trash', 'Clear test data', `data-act="clear-tests" ${!tp.length && !ts.length || readOnly() || (live() && S.role !== 'owner') ? 'disabled' : ''}`, 'danger')}</div>`;
+      ${actBtn('trash', 'Clear test data', `data-act="clear-tests" ${!tp.length && !ts.length || readOnly() || (live() && S.role !== 'owner') ? 'disabled' : ''}`, 'danger')}</div>
+      ${live() ? '' : `<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div>${actBtn('undo', 'Reset sample data', 'data-act="reset"')}</div>`}`;
   }
 
   // ---------- sheets (sell, restock, edit) ----------
@@ -1097,6 +1118,7 @@
     if (d.confirm) { const fn = pendingConfirm; closeConfirm(); if (d.confirm === 'yes' && fn) fn(); return; }
     if (d.key) return pressKey(d.key);
     if (d.shop && !S.role) {
+      if (d.shop !== S.shop) resetForShop();
       S.shop = d.shop; S._settings = null; S.pin = ''; S.pinErr = '';
       const pass = live() && Backends.live.pass(d.shop);
       return pass ? enter(pass.role) : renderSignIn();
@@ -1108,15 +1130,13 @@
     }
     if (d.report) {
       if (!live() || sendReport.busy) return;
-      const to = (($('#report-to') || {}).value || '').trim().toLowerCase(), err = $('#mail-err');
+      const to = '', err = $('#mail-err');
       S.ui.reportErr = ''; if (err) err.textContent = '';
-      if (to && !/^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i.test(to)) { S.ui.reportErr = 'That doesn’t look like an email address (like name@gmail.com).'; if (err) err.textContent = S.ui.reportErr; return; }
-      S.ui.reportTo = to;
       const kind = d.report;
       return confirmAction({
         title: kind === 'monthly' ? 'Send last month’s report now?' : 'Send today’s report now?', danger: false,
-        body: `It goes to ${to || 'the usual address set up on Cloudflare'}.`,
-        keep: to ? 'This address is used for this one email only and isn’t saved.' : 'The scheduled reports still go out as usual.',
+        body: 'It goes to the address set up on Cloudflare.',
+        keep: 'The scheduled reports still go out as usual.',
         confirm: 'Send',
         onConfirm: () => {
       sendReport.busy = true; el.disabled = true; el.classList.add('busy'); toast('Sending…');
@@ -1141,6 +1161,7 @@
     if (d.stafftab) { S.ui.staffTab = d.stafftab; return renderView(); }
     if (d.restock) return openRestock(d.restock);
     if (d.onsale) return openOnSale(d.onsale);
+    if (d.themePick) { if (d.themePick === 'auto') { try { localStorage.removeItem('b125_theme'); } catch (e) { /* ignore */ } } else lsSet('b125_theme', d.themePick); applyTheme(); return renderView(); }
     if (d.salestatus) {
       // For sale / Not for sale switch in the add and edit forms.
       const f = el.closest('form'), nfs = d.salestatus === 'nfs';

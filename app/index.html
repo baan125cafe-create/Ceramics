@@ -14,8 +14,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Shops">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#F6F0E6" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#17110C" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#3A2D22" media="(prefers-color-scheme: dark)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
@@ -33,9 +33,12 @@
   --font-display: 'DM Serif Display', Georgia, 'Times New Roman', serif;
   --font-body: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --r-lg: 18px; --r-md: 14px; --r-sm: 10px;
+  /* Header, sidebar and bottom bar. In dark mode a lighter brown than the cards so they stand apart. */
+  --chrome: #FFFFFF; --chrome-line: #E6DACB; --chrome-on: #F3E1D3;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
   --bg: #17110C; --surface: #221A13; --surface-2: #2A2119; --line: #3B2F25;
+  --chrome: #3A2D22; --chrome-line: #4D3C2E; --chrome-on: #4D3A2A;
   --ink: #F3EADF; --muted: #B9A898; --accent: #E5915E; --accent-ink: #1A0F08; --accent-soft: #3A2618;
   --hero: #32251A; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A; --hero-edge: #5A4432; --seg-on: #4A3A2C;
   --bar: #A88466; --bar-hi: #F0A46B; --delta-flat: rgba(255,255,255,0.12);
@@ -46,6 +49,7 @@
 } }
 :root[data-theme="dark"] {
   --bg: #17110C; --surface: #221A13; --surface-2: #2A2119; --line: #3B2F25;
+  --chrome: #3A2D22; --chrome-line: #4D3C2E; --chrome-on: #4D3A2A;
   --ink: #F3EADF; --muted: #B9A898; --accent: #E5915E; --accent-ink: #1A0F08; --accent-soft: #3A2618;
   --hero: #32251A; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A; --hero-edge: #5A4432; --seg-on: #4A3A2C;
   --bar: #A88466; --bar-hi: #F0A46B; --delta-flat: rgba(255,255,255,0.12);
@@ -74,7 +78,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 /* Demo strip */
-.demo-strip { background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 600; text-align: center; padding-block: calc(6px + env(safe-area-inset-top, 0px)) 6px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.demo-strip { background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 600; text-align: center; padding-block: 6px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 
 /* Sign-in */
 .signin { min-height: 100%; background: var(--brand-dark); color: var(--brand-dark-ink); display: flex; align-items: center; justify-content: center; padding-block: 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -109,15 +113,15 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 /* App shell */
 .shell { min-height: 100%; display: flex; flex-direction: column; }
 .sidebar { display: none; }
-/* Phone header: its own band (card colour + hairline) so it doesn't run into the page.
+/* Phone header: its own band (card colour + hairline) that stays at the top while scrolling.
    The top padding clears the iPhone status bar when the app is opened from the home screen. */
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: calc(12px + env(safe-area-inset-top, 0px)) 12px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 1px 8px rgba(0,0,0,0.06); margin-bottom: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.topbar { position: sticky; top: 0; z-index: 15; padding-block: calc(8px + env(safe-area-inset-top, 0px)) 8px; background: var(--chrome); border-bottom: 1px solid var(--chrome-line); box-shadow: 0 1px 8px rgba(0,0,0,0.06); margin-bottom: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .brand { font-family: var(--font-display); font-size: 26px; line-height: 1.05; }
 .brand-sub { font-size: 12px; color: var(--muted); }
 .main { flex: 1 1 auto; width: 100%; max-width: 1240px; margin: 0 auto; padding-block: 4px 112px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 14px; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .page-head h1 { font-family: var(--font-display); font-size: 30px; line-height: 1.05; }
-.bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--line); display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding-top: 6px; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
+.bottom-nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--chrome); border-top: 1px solid var(--chrome-line); display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); padding-top: 6px; padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)); padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(6px, env(safe-area-inset-right, 0px)); }
 .nav-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 48px; border: 0; background: transparent; color: var(--muted); font-size: 11px; font-weight: 600; }
 .nav-btn[aria-current="page"] { color: var(--accent); }
 .nav-btn svg { width: 22px; height: 22px; }
@@ -126,11 +130,11 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 
 @media (min-width: 900px) {
   .shell { flex-direction: row; }
-  .sidebar { display: flex; flex-direction: column; gap: 6px; width: 236px; flex: none; position: sticky; top: 0; height: 100vh; padding: 26px 16px 20px max(16px, env(safe-area-inset-left, 0px)); border-right: 1px solid var(--line); background: var(--surface); }
+  .sidebar { display: flex; flex-direction: column; gap: 6px; width: 236px; flex: none; position: sticky; top: 0; height: 100vh; padding: 26px 16px 20px max(16px, env(safe-area-inset-left, 0px)); border-right: 1px solid var(--chrome-line); background: var(--chrome); }
   .sidebar .brand-switch { margin-bottom: 12px; }
   .side-link { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: var(--r-sm); border: 0; background: transparent; color: var(--muted); font-weight: 600; font-size: 14px; text-align: left; }
   .side-link svg { width: 20px; height: 20px; }
-  .side-link[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+  .side-link[aria-current="page"] { background: var(--chrome-on); color: var(--accent); }
   .side-sell { margin: 10px 0; min-height: 48px; border-radius: var(--r-md); border: 0; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
   .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding: 12px 0 calc(16px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
   .topbar, .bottom-nav { display: none; }
@@ -223,7 +227,6 @@ button.brand-switch:hover, button.brand-switch:focus-visible { background: var(-
 .switch[aria-checked="true"] { background: var(--good); }
 .switch[aria-checked="true"] i { transform: translateX(20px); }
 @media (prefers-reduced-motion: reduce) { .switch, .switch i { transition: none; } }
-.pay-type small { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
 td.when { white-space: nowrap; font-variant-numeric: tabular-nums; }
 #mail-err:empty { display: none; }
 .pill.pay-custom { background: var(--surface-2); color: var(--ink); }
@@ -350,7 +353,16 @@ tfoot td { font-weight: 700; border-bottom: 0; }
 .set-row .icon-btn { margin-right: 4px; }
 .confirm-actions.one { grid-template-columns: 1fr; }
 .card p a { color: var(--accent); font-weight: 600; text-underline-offset: 2px; }
-.demo-strip + .shell .topbar { padding-top: 12px; }
+.topbar-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.brand-mini { display: flex; flex-direction: column; min-width: 0; }
+.topbar .brand { font-size: 22px; white-space: nowrap; }
+.topbar .brand .shop-logo { width: 22px; height: 22px; margin-right: 6px; }
+.topbar-actions { display: flex; align-items: center; flex: none; }
+.shop-pill { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 12px 0 9px; margin-right: 2px; border-radius: 999px; border: 1px solid var(--chrome-line); background: transparent; color: var(--accent); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.shop-pill .shop-logo { width: 15px; height: 15px; }
+/* On phones the data note sits inside the sticky header as one short line. */
+.topbar .demo-strip { margin: 8px calc(-1 * max(16px, env(safe-area-inset-right, 0px))) -8px calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-block: 4px; font-size: 11px; }
+@media (max-width: 899px) { #app > .demo-strip { display: none; } }
 @media (min-width: 700px) { .overlay { align-items: center; } .sheet { border-radius: 24px; max-height: 88%; } .sheet .grab { display: none; } }
 .stepper { display: flex; align-items: center; justify-content: center; gap: 22px; }
 .stepper button { width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-size: 24px; }
