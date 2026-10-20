@@ -721,11 +721,28 @@
           <label class="field" for="add-sell">Sell price (฿)<input id="add-sell" name="sellPrice" type="number" min="0" inputmode="decimal" placeholder="450" required></label>
         </div>
         ${nfsCheck('add', false)}` : `<label class="field" for="add-sell">Sell price (฿)<input id="add-sell" name="sellPrice" type="number" min="0" inputmode="decimal" placeholder="450" required><span class="hint">The owner adds the cost price. Once saved, only the owner can change it.</span></label>`}
-        <label class="field" for="add-qty">Quantity<input id="add-qty" name="quantity" type="number" min="0" inputmode="numeric" placeholder="10" required></label>
+        <label class="field" for="add-qty">Quantity<input id="add-qty" name="quantity" type="number" min="1" inputmode="numeric" placeholder="10" required></label>
         <div class="muted small" id="add-margin" aria-live="polite"></div>
         <div class="pin-err" id="add-err" role="alert" style="color:var(--bad)"></div>
-        <button type="submit" class="btn primary block">${readOnly() ? 'Saving is off in this preview' : 'Add product'}</button>
+        <button type="submit" class="btn primary block" id="add-save" disabled>${readOnly() ? 'Saving is off in this preview' : 'Add product'}</button>
+        <p class="muted small" id="add-need" style="margin:0;text-align:center">${readOnly() ? '' : 'Still needed: product name · sell price · quantity of 1 or more'}</p>
       </form>`;
+  }
+  // Add product: the button stays off until there's a name, a price (unless not for sale) and at least 1 piece.
+  function addMissing(f) {
+    const v = k => (f.elements[k] && f.elements[k].value || '').trim();
+    const nfs = S.role === 'owner' && !!(f.elements.notForSale && f.elements.notForSale.value === '1');
+    const m = [];
+    if (!v('name')) m.push('product name');
+    if (!nfs && !(num(v('sellPrice')) > 0)) m.push('sell price');
+    if (!(Math.floor(num(v('quantity'))) >= 1)) m.push('quantity of 1 or more');
+    return m;
+  }
+  function updateAddForm() {
+    const f = $('#add-form'); if (!f) return;
+    const m = addMissing(f);
+    $('#add-save').disabled = readOnly() || m.length > 0;
+    $('#add-need').textContent = m.length && !readOnly() ? 'Still needed: ' + m.join(' · ') : '';
   }
 
   // ----- sales (owner) -----
@@ -1130,7 +1147,7 @@
       f.elements.notForSale.value = nfs ? '1' : '';
       el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === el)));
       const price = f.elements.sellPrice; if (price) price.placeholder = nfs ? 'Optional' : 'Required';
-      return;
+      return updateAddForm();
     }
     if (d.edit) return openEdit(d.edit);
     if (d.sell) return openSell(d.sell);
@@ -1254,6 +1271,7 @@
   });
 
   document.addEventListener('input', e => {
+    if (e.target.closest && e.target.closest('#add-form')) updateAddForm();
     if (e.target.id === 'sell-price' && sell) {
       // Update the total as the price is typed, without redrawing (keeps the keyboard open).
       sell.price = e.target.value;
@@ -1292,7 +1310,7 @@
       if (!v('name')) return (err.textContent = 'Give the product a name.');
       const nfs = S.role === 'owner' && !!(f.elements.notForSale && f.elements.notForSale.value === '1');
       if (!nfs && !(num(v('sellPrice')) > 0)) return (err.textContent = 'Enter a sell price above 0, or choose Not for sale.');
-      if (v('quantity') === '' || num(v('quantity')) < 0) return (err.textContent = 'Enter how many are on the shelf (0 or more).');
+      if (!(Math.floor(num(v('quantity'))) >= 1)) return (err.textContent = 'Enter how many you have (1 or more).');
       return write(() => backend().addProduct(S.shop, { name: v('name'), size: v('size'), costPrice: S.role === 'owner' ? v('costPrice') : '', sellPrice: v('sellPrice'), quantity: v('quantity'), notForSale: nfs, imageUrl: ($('#add-preview').dataset.img || ''), addedBy: S.role === 'owner' ? 'Owner' : (S.lastSeller || 'Staff') }),
         () => { toast('Product added'); go('stock'); }, '#add-err');
     }

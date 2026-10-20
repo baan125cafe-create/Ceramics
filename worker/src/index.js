@@ -287,7 +287,7 @@ async function addProduct(env, shop, d, role) {
   const cost = role !== 'owner' || d.costPrice === '' || d.costPrice == null ? 0 : Number(d.costPrice);
   if (nfs ? !(sell >= 0) : !(sell > 0)) fail('Enter a sell price above 0.');
   if (!(cost >= 0)) fail('Cost price must be 0 or more.');
-  if (!(qty >= 0)) fail('Enter how many are on the shelf (0 or more).');
+  if (!(qty >= 1)) fail('Enter how many you have (1 or more).');
   const p = { id: 'PRD-' + Date.now(), name, size: str(d.size, 40), costPrice: money(cost), sellPrice: money(sell), quantity: qty, imageUrl: str(d.imageUrl, 500), addedBy: str(d.addedBy, 40), createdAt: new Date().toISOString(), notForSale: nfs };
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
