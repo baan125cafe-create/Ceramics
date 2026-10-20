@@ -100,7 +100,9 @@
     async updateProduct(shop, id, f) {
       const p = demoData(shop).products.find(x => x.id === id);
       if (!p) throw new Error('That product no longer exists.');
-      Object.assign(p, { name: f.name, size: f.size, costPrice: num(f.costPrice), sellPrice: num(f.sellPrice), quantity: Math.floor(num(f.quantity)), notForSale: f.notForSale ? 1 : 0 });
+      // Only the fields sent change, like the live API.
+      const set = { name: f.name, size: f.size, costPrice: f.costPrice === undefined ? undefined : num(f.costPrice), sellPrice: f.sellPrice === undefined ? undefined : num(f.sellPrice), quantity: f.quantity === undefined ? undefined : Math.floor(num(f.quantity)), notForSale: f.notForSale === undefined ? undefined : (f.notForSale ? 1 : 0) };
+      Object.keys(set).forEach(k => { if (set[k] !== undefined) p[k] = set[k]; });
       return p;
     },
     async deleteProduct(shop, id) {

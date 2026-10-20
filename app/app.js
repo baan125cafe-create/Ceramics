@@ -621,15 +621,16 @@
     const maxQ = Math.max(10, ...prods.map(p => p.quantity));
     $('#stock-list').innerHTML = list.length ? list.map(p => {
       const st = status(p);
-      const margin = p.costPrice > 0 && p.sellPrice > 0 ? Math.round((p.sellPrice - p.costPrice) / p.sellPrice * 100) + '% margin' : '<b class="tone-low">no cost price</b>';
+      const margin = p.costPrice <= 0 ? '<b class="tone-low">no cost price</b>' : p.sellPrice > 0 ? Math.round((p.sellPrice - p.costPrice) / p.sellPrice * 100) + '% margin' : '';
       return `<li class="row">
         ${thumb(p)}
         <button type="button" class="row-body" data-edit="${esc(p.id)}" aria-label="Edit ${esc(label(p))}">
           <span class="row-title">${testBadge(p)}${esc(label(p))}</span>
-          <span class="row-sub">${priceText(p)} · cost ${p.costPrice > 0 ? money(p.costPrice) : '—'} · ${margin}</span>
+          <span class="row-sub">${[priceText(p), 'cost ' + (p.costPrice > 0 ? money(p.costPrice) : '—'), margin].filter(Boolean).join(' · ')}</span>
           <span class="stockbar"><span class="track"><i class="fill-${st}" style="width:${Math.max(0, Math.min(100, p.quantity / maxQ * 100)).toFixed(0)}%"></i></span><b class="tone-${st}">${st === 'out' ? (notForSale(p) ? 'None left' : 'Sold out') : p.quantity + (notForSale(p) ? ' kept' : ' left')}</b></span>
         </button>
-        <button type="button" class="btn" data-restock="${esc(p.id)}" aria-label="Add inventory for ${esc(label(p))}">+ Add</button>
+        ${notForSale(p) ? `<button type="button" class="btn" data-onsale="${esc(p.id)}" aria-label="Put ${esc(label(p))} on sale">Ready to sell</button>`
+          : `<button type="button" class="btn" data-restock="${esc(p.id)}" aria-label="Add inventory for ${esc(label(p))}">+ Add</button>`}
       </li>`;
     }).join('') : `<li class="empty">${q ? 'No product matches that search.' : 'Nothing here.'}</li>`;
   }
@@ -688,7 +689,10 @@
 
   // ----- add product -----
   // Owner only: keep a piece in inventory without letting it be sold.
-  const nfsCheck = (form, on) => `<label class="check" for="${form}-nfs"><input id="${form}-nfs" name="notForSale" type="checkbox" ${on ? 'checked' : ''}><span><b>Not for sale</b><span class="hint">Keep it in inventory, but staff can’t sell it. A price is optional.</span></span></label>`;
+  const nfsCheck = (form, on) => `<div class="field">Status
+      <div class="seg" role="group" aria-label="Status"><button type="button" data-salestatus="sale" aria-pressed="${!on}">For sale</button><button type="button" data-salestatus="nfs" aria-pressed="${on}">Not for sale</button></div>
+      <input type="hidden" name="notForSale" value="${on ? '1' : ''}">
+      <span class="hint">Not for sale keeps it in inventory, but staff can’t sell it. A price is optional.</span></div>`;
   function viewAdd() {
     return `
       <div class="page-head"><div><h1>Add product</h1><div class="muted small">New item for ${esc(SHOPS[S.shop].name)}</div></div></div>
@@ -987,6 +991,27 @@
       p => { closeSheet(); renderView(); toast(`Added ${restock.add} · ${p.quantity} in inventory`); }, '#restock-err');
   }
 
+  // Not for sale → ready to sell: one tap, with the price asked for if it has none.
+  let onSale = null;
+  function openOnSale(id) {
+    const p = shown().find(x => x.id === id);
+    if (!p) return;
+    onSale = { id };
+    openSheet(`
+      ${sheetHead('Ready to sell', esc(label(p)) + ` · ${p.quantity} in inventory`, p)}
+      <p class="muted" style="margin:0">Staff will see it in Sell and can sell it straight away.</p>
+      <label class="field" for="onsale-price">Sell price (฿)<input id="onsale-price" type="number" min="1" inputmode="decimal" value="${p.sellPrice > 0 ? p.sellPrice : ''}" placeholder="Required"></label>
+      <div class="pin-err" id="onsale-err" role="alert" style="color:var(--bad)"></div>
+      ${previewNote()}
+      <button type="button" class="btn primary block" data-act="save-onsale" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off in this preview' : 'Put on sale'}</button>`, 'Ready to sell');
+  }
+  function saveOnSale() {
+    const price = num($('#onsale-price').value);
+    if (!(price > 0)) return ($('#onsale-err').textContent = 'Enter a sell price above 0.');
+    write(() => backend().updateProduct(S.shop, onSale.id, { notForSale: false, sellPrice: price }),
+      () => { closeSheet(); renderView(); toast('On sale now · ' + money(price)); }, '#onsale-err');
+  }
+
   let editing = null;
   function openEdit(id) {
     const p = shown().find(x => x.id === id);
@@ -1069,6 +1094,15 @@
     if (d.filterChip) { S.ui.stockFilter = d.filterChip; return fillOwnerStock(); }
     if (d.stafftab) { S.ui.staffTab = d.stafftab; return renderView(); }
     if (d.restock) return openRestock(d.restock);
+    if (d.onsale) return openOnSale(d.onsale);
+    if (d.salestatus) {
+      // For sale / Not for sale switch in the add and edit forms.
+      const f = el.closest('form'), nfs = d.salestatus === 'nfs';
+      f.elements.notForSale.value = nfs ? '1' : '';
+      el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === el)));
+      const price = f.elements.sellPrice; if (price) price.placeholder = nfs ? 'Optional' : 'Required';
+      return;
+    }
     if (d.edit) return openEdit(d.edit);
     if (d.sell) return openSell(d.sell);
     if (d.qty) { noteNow(); sell.qty += Number(d.qty); return drawSell(); }
@@ -1091,6 +1125,7 @@
       case 'close': return closeSheet();
       case 'save-sale': return saveSale();
       case 'save-restock': return saveRestock();
+      case 'save-onsale': return saveOnSale();
       case 'refresh': return loadData(true).then(() => toast('Data refreshed'));
       case 'export': return exportCsv();
       case 'pin-later': return toast(live() ? 'PINs are changed from a computer: npm run set-pin (see worker/README.md).' : 'In the live app, PINs are changed from a computer.');
@@ -1226,16 +1261,16 @@
     if (f.id === 'add-form') {
       const err = $('#add-err');
       if (!v('name')) return (err.textContent = 'Give the product a name.');
-      const nfs = S.role === 'owner' && !!(f.elements.notForSale && f.elements.notForSale.checked);
-      if (!nfs && !(num(v('sellPrice')) > 0)) return (err.textContent = 'Enter a sell price above 0, or tick Not for sale.');
+      const nfs = S.role === 'owner' && !!(f.elements.notForSale && f.elements.notForSale.value === '1');
+      if (!nfs && !(num(v('sellPrice')) > 0)) return (err.textContent = 'Enter a sell price above 0, or choose Not for sale.');
       if (v('quantity') === '' || num(v('quantity')) < 0) return (err.textContent = 'Enter how many are on the shelf (0 or more).');
       return write(() => backend().addProduct(S.shop, { name: v('name'), size: v('size'), costPrice: S.role === 'owner' ? v('costPrice') : '', sellPrice: v('sellPrice'), quantity: v('quantity'), notForSale: nfs, imageUrl: ($('#add-preview').dataset.img || ''), addedBy: S.role === 'owner' ? 'Owner' : (S.lastSeller || 'Staff') }),
         () => { toast('Product added'); go('stock'); }, '#add-err');
     }
     if (f.id === 'edit-form') {
       if (!v('name')) return ($('#edit-err').textContent = 'Give the product a name.');
-      const nfs = !!f.elements.notForSale.checked;
-      if (!nfs && !(num(v('sellPrice')) > 0)) return ($('#edit-err').textContent = 'Enter a sell price above 0, or tick Not for sale.');
+      const nfs = f.elements.notForSale.value === '1';
+      if (!nfs && !(num(v('sellPrice')) > 0)) return ($('#edit-err').textContent = 'Enter a sell price above 0, or choose Not for sale.');
       return write(() => backend().updateProduct(S.shop, editing.id, { name: v('name'), size: v('size'), costPrice: v('costPrice'), sellPrice: v('sellPrice'), quantity: v('quantity'), notForSale: nfs }),
         () => { closeSheet(); renderView(); toast('Saved'); }, '#edit-err');
     }
