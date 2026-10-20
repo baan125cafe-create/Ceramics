@@ -61,7 +61,6 @@
     list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
-    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>',
     undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
@@ -111,6 +110,8 @@
   // What a product sells for, or a hint when it has no price yet.
   const priceText = p => notForSale(p) ? (p.sellPrice > 0 ? money(p.sellPrice) : 'No price') : (p.sellPrice > 0 ? money(p.sellPrice) : 'Price at sale');
   // Round icon button for an action (Settings, inventory rows). The label is read out and shown on hover.
+  // Who to ask for a PIN change (PINs are set on Cloudflare, not in the app).
+  const PIN_CONTACT = 'paul.leejw@gmail.com';
   const actBtn = (icon, labelText, attrs, tone) => `<button type="button" class="icon-btn add-btn${tone ? ' ' + tone : ''}" aria-label="${esc(labelText)}" title="${esc(labelText)}" ${attrs}>${I[icon]}</button>`;
   const sellable = p => p.quantity > 0 && !notForSale(p);
 
@@ -794,10 +795,8 @@
         <div class="settings-col">
         <section class="card">
           <h2>Access</h2>
-          ${live() ? '<p class="muted small" style="margin:0">PINs are changed from a computer with the shop’s setup tools, so they never pass through this app.</p>' : ''}
+          <p class="muted small" style="margin:0">The owner PIN opens everything; the staff PIN opens inventory, add product and sell. PINs are kept on Cloudflare and never pass through this app. To change one, email Paul at <a href="mailto:${PIN_CONTACT}?subject=${encodeURIComponent('Change a PIN for ' + SHOPS[S.shop].name)}">${PIN_CONTACT}</a>.</p>
           <div>
-            <div class="set-row"><div><b>Owner PIN</b><small>Everything, including this page</small></div>${actBtn('edit', 'Change the owner PIN', 'data-act="pin-later" data-pin="owner"')}</div>
-            <div class="set-row"><div><b>Staff PIN</b><small>Inventory, add product and sell</small></div>${actBtn('edit', 'Change the staff PIN', 'data-act="pin-later" data-pin="staff"')}</div>
             <div class="set-row"><div><b>Signed-in devices</b><small>Sign out every phone and computer, for example after a staff change</small></div>${actBtn('out', 'Sign out every device', 'data-act="signout-all"', 'danger')}</div>
           </div>
         </section>
@@ -1148,12 +1147,6 @@
       case 'save-onsale': return saveOnSale();
       case 'refresh': return loadData(true).then(() => toast('Data refreshed'));
       case 'export': return exportCsv();
-      case 'pin-later': return confirmAction({
-        title: `Change the ${d.pin === 'staff' ? 'staff' : 'owner'} PIN`, info: true, danger: false,
-        body: live() ? 'PINs are changed by Paul from his computer, so they never pass through this app. Ask him for a new one.' : 'In the live app, PINs are changed from a computer, so they never pass through the app.',
-        keep: 'Once it has changed, use Sign out under Signed-in devices so every phone and computer needs the new PIN.',
-        confirm: 'OK', onConfirm: () => {}
-      });
       case 'retry-detect': delete Backends.live.info[S.shop]; return renderSignIn();
       case 'switch-shop': return switchShop();
       case 'clear-tests': return (async () => {

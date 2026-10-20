@@ -58,7 +58,7 @@ Put **test** in a product name to try things out, in any case: `Test mug`, `[TES
 
 - Test products and their sales are left out of every total, chart and email report.
 - A test sale is refused on a real product, so real inventory never changes in a test.
-- **Settings → Test data → Clear** lists exactly what will be removed and asks first. Only test rows can be removed.
+- **Settings → Test data →** the trash button lists exactly what will be removed and asks first. Only test rows can be removed.
 
 ## Files
 
