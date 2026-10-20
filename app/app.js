@@ -334,6 +334,8 @@
   function strip() {
     if (!live()) return `<div class="demo-strip">Demo mode · sample data only · nothing here touches the real shop data</div>`;
     if (Backends.live.local) return `<div class="demo-strip live">Local test · shop API on this computer · changes stay on this computer</div>`;
+    // Staff don't need the reminder; the owner sees it because she edits products and can add test items.
+    if (S.role !== 'owner') return '';
     return `<div class="demo-strip real">Live · changes save to the real ${esc(SHOPS[S.shop].name)} data · to try things out, put “test” in a product name</div>`;
   }
   function render() {
