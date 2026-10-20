@@ -957,7 +957,7 @@
   // Price per piece for the sale: the product's price, or the one typed in if it has none.
   const sellEach = () => { const p = shown().find(x => x.id === sell.productId); return !p ? 0 : p.sellPrice > 0 ? p.sellPrice : num(sell.price); };
   const sellSum = () => { const e = sellEach(), payLabel = (activePays().find(x => x.id === sell.pay) || {}).label || ''; return `<span class="muted">${sell.qty} × ${e > 0 ? money(e) : '—'} · ${esc(payLabel)}</span><b>${money(sell.qty * e)}</b>`; };
-  const sellBtn = () => readOnly() ? 'Saving is off in this preview' : 'Save sale · ' + money(sell.qty * sellEach());
+  const sellBtn = () => readOnly() ? 'Saving is off in this preview' : 'Record sale · ' + money(sell.qty * sellEach());
   function saveSale() {
     const err = m => { $('#sell-err').textContent = m; };
     if (!sell.productId) return err('Choose the product first.');
