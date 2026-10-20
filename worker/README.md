@@ -35,7 +35,7 @@ cd ~/Ideas/Ceramics && python3 -m http.server 8000
 
 - **Which data:** on `localhost` the app uses the local API on port 8787 (or `?local=PORT`). It reaches the real API only when the address ends in `?live=1`.
 - **PINs:** use test PINs locally, not the real shop PINs. The local `.dev.vars` file is only for this computer.
-- **Tests:** `npm test` runs 44 checks against a throwaway database with made-up rows.
+- **Tests:** `npm test` runs 62 checks against a throwaway database with made-up rows.
 
 ## Set up Cloudflare (once)
 
@@ -209,6 +209,16 @@ Open `https://milkyanyong.shop` on each phone, choose the shop and **Live data**
 ### Step 10 · Retire the old script
 
 In each sheet, open **Extensions → Apps Script → Deploy → Manage deployments** and archive every deployment. The old links stop working, and the sheets stay as a frozen backup.
+
+## Database changes
+
+Some updates add a column to the database. They come as a file in `migrations/` and are run once, **before** deploying the code that uses them. They only add columns with a default value; no existing row is changed.
+
+| File | Adds | Run |
+| --- | --- | --- |
+| `0001_not_for_sale.sql` | `products.notForSale` (owner's "Not for sale" tick) | `npm run db:migrate:remote`, then `npm run deploy` |
+
+For the copy on your computer, run `npm run db:migrate:local` once. A second run says "duplicate column name", which means it's already done.
 
 ## Email reports
 

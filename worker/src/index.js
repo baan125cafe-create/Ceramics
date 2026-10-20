@@ -11,6 +11,8 @@
 //   - Passes expire (staff 30 days, owner 7 days). "Sign all out" ends them all.
 //   - Staff never receive cost prices or money totals.
 //   - Sales: the server sets price, total and today's cost. Stock can't go below 0.
+//     A product with no price (0) needs the price typed in at the sale.
+//   - "Not for sale" (owner only): kept in inventory, refused at the till.
 //   - "Remove" archives a product; its row stays so old sales keep their cost.
 //   - Test rows ("test" as a word anywhere in the product name, any case) are left out of
 //     reports and are the only rows that can be cleared.
@@ -218,6 +220,7 @@ async function addSale(env, shop, d) {
   const p = await getProduct(env, shop, d.productId);
   if (!p) fail('That product no longer exists.');
   if (p.archived) fail('That product has been removed.');
+  if (Number(p.notForSale)) fail('That item is marked not for sale. Ask the owner.');
   const q = int(d.quantity);
   if (!(q >= 1)) fail('Enter a quantity of 1 or more.');
   if (q > p.quantity) fail('Only ' + p.quantity + ' left on the shelf.');
@@ -227,7 +230,13 @@ async function addSale(env, shop, d) {
   const note = str(d.note, 300);
   if (isTestText(note) && !isTestProduct(p)) fail('Test sales must use a test product (with “test” in its name) so real inventory isn’t changed.');
   const now = new Date();
-  const price = money(p.sellPrice);
+  // A product with no price yet: the seller types the price for this sale. It isn't saved
+  // on the product (the owner sets that). Otherwise the product's price is always used.
+  let price = money(p.sellPrice);
+  if (!(price > 0)) {
+    price = money(Number(d.price));
+    if (!(price > 0) || price > 10000000) fail('This item has no price yet. Enter the price per piece.');
+  }
   const sale = {
     id: 'SALE-' + now.getTime(), productId: p.id, productName: p.name + (p.size ? ' · ' + p.size : ''),
     quantity: q, sellPrice: price, total: money(price * q), paymentMethod: pay, saleDate: bkkDay(now),
@@ -272,16 +281,18 @@ async function addStock(env, shop, d) {
 async function addProduct(env, shop, d, role) {
   const name = str(d.name, 120);
   if (!name) fail('Give the product a name.');
-  const sell = Number(d.sellPrice), qty = int(d.quantity);
+  // Only the owner marks items not for sale; those may have no price yet.
+  const nfs = role === 'owner' && !!d.notForSale ? 1 : 0;
+  const sell = nfs && (d.sellPrice === '' || d.sellPrice == null) ? 0 : Number(d.sellPrice), qty = int(d.quantity);
   const cost = role !== 'owner' || d.costPrice === '' || d.costPrice == null ? 0 : Number(d.costPrice);
-  if (!(sell > 0)) fail('Enter a sell price above 0.');
+  if (nfs ? !(sell >= 0) : !(sell > 0)) fail('Enter a sell price above 0.');
   if (!(cost >= 0)) fail('Cost price must be 0 or more.');
   if (!(qty >= 0)) fail('Enter how many are on the shelf (0 or more).');
-  const p = { id: 'PRD-' + Date.now(), name, size: str(d.size, 40), costPrice: money(cost), sellPrice: money(sell), quantity: qty, imageUrl: str(d.imageUrl, 500), addedBy: str(d.addedBy, 40), createdAt: new Date().toISOString() };
+  const p = { id: 'PRD-' + Date.now(), name, size: str(d.size, 40), costPrice: money(cost), sellPrice: money(sell), quantity: qty, imageUrl: str(d.imageUrl, 500), addedBy: str(d.addedBy, 40), createdAt: new Date().toISOString(), notForSale: nfs };
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await env.DB.prepare('INSERT INTO products (shop, id, name, size, costPrice, sellPrice, quantity, imageUrl, addedBy, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(shop, p.id, p.name, p.size, p.costPrice, p.sellPrice, p.quantity, p.imageUrl, p.addedBy, p.createdAt).run();
+      await env.DB.prepare('INSERT INTO products (shop, id, name, size, costPrice, sellPrice, quantity, imageUrl, addedBy, createdAt, notForSale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(shop, p.id, p.name, p.size, p.costPrice, p.sellPrice, p.quantity, p.imageUrl, p.addedBy, p.createdAt, p.notForSale).run();
       return { success: true, product: p };
     } catch (e) {
       if (!/UNIQUE/i.test(String(e.message))) throw e;
@@ -292,12 +303,16 @@ async function addProduct(env, shop, d, role) {
 }
 
 async function updateProduct(env, shop, d) {
-  if (!await getProduct(env, shop, d.id)) fail('That product no longer exists.');
+  const cur = await getProduct(env, shop, d.id);
+  if (!cur) fail('That product no longer exists.');
   const f = {};
+  if (d.notForSale !== undefined) f.notForSale = d.notForSale ? 1 : 0;
+  const nfs = f.notForSale !== undefined ? f.notForSale : Number(cur.notForSale) ? 1 : 0;
   if (d.name !== undefined) { const n = str(d.name, 120); if (!n) fail('Give the product a name.'); f.name = n; }
   if (d.size !== undefined) f.size = str(d.size, 40);
   if (d.costPrice !== undefined && d.costPrice !== '') { const c = Number(d.costPrice); if (!(c >= 0)) fail('Cost price must be 0 or more.'); f.costPrice = money(c); }
-  if (d.sellPrice !== undefined) { const s = Number(d.sellPrice); if (!(s > 0)) fail('Enter a sell price above 0.'); f.sellPrice = money(s); }
+  // Not-for-sale items may have no price yet (0); items for sale need one.
+  if (d.sellPrice !== undefined) { const s = d.sellPrice === '' && nfs ? 0 : Number(d.sellPrice); if (nfs ? !(s >= 0) : !(s > 0)) fail('Enter a sell price above 0.'); f.sellPrice = money(s); }
   if (d.quantity !== undefined) { const q = int(d.quantity); if (!(q >= 0)) fail('Quantity must be 0 or more.'); f.quantity = q; }
   if (d.imageUrl) f.imageUrl = str(d.imageUrl, 500);
   const keys = Object.keys(f); // fixed list above, never taken from the request

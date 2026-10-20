@@ -18,12 +18,17 @@ fs.mkdirSync(path.dirname(vars), { recursive: true });
 fs.writeFileSync(vars, ['BAAN_OWNER_PIN_HASH=' + scramble('246810'), 'BAAN_STAFF_PIN_HASH=' + scramble('135791'), 'CHUD_OWNER_PIN_HASH=' + scramble('864200'), 'CHUD_STAFF_PIN_HASH=' + scramble('975310')].join('\n'));
 
 const wr = (...a) => execFileSync('npx', ['wrangler', ...a], { cwd: root, stdio: 'pipe' });
-wr('d1', 'execute', 'shop-db', '--local', '--persist-to', state, '--file', 'schema.sql');
+// Start from the schema as it was before "not for sale", then run the migration, like the live database.
+const oldSchema = path.join(root, '.wrangler', 'test-schema-old.sql');
+fs.writeFileSync(oldSchema, fs.readFileSync(path.join(root, 'schema.sql'), 'utf8').split('\n').filter(l => !/^\s*notForSale\b/.test(l)).join('\n'));
+wr('d1', 'execute', 'shop-db', '--local', '--persist-to', state, '--file', oldSchema);
+wr('d1', 'execute', 'shop-db', '--local', '--persist-to', state, '--file', 'migrations/0001_not_for_sale.sql');
 const seed = path.join(state, 'seed.sql');
 fs.writeFileSync(seed, `
 INSERT INTO products (shop,id,name,size,costPrice,sellPrice,quantity,imageUrl,addedBy,createdAt) VALUES
  ('baan','PRD-1','Lotus mug','300ml',160,450,6,'','Milk','2026-06-12T03:00:00Z'),
  ('baan','PRD-2','Bud vase','',0,380,2,'','Milk','2026-06-12T03:00:00Z'),
+ ('baan','PRD-0','Old bowl','',0,0,3,'','Milk','2026-06-12T03:00:00Z'),
  ('chud','PRD-9','Olive shirt','',1500,2990,1,'','PB','2026-06-17T05:00:00Z');
 INSERT INTO sales (shop,id,productId,productName,quantity,sellPrice,total,paymentMethod,saleDate,soldBy,createdAt,note) VALUES
  ('baan','SALE-1','PRD-1','Lotus mug',1,450,450,'credit','2026-06-14','PB','2026-06-14T08:00:00Z',''),
@@ -64,12 +69,12 @@ try {
   const sa = await C('baan', { action: 'getAll', token: staff.token });
   ok(sa.products.every(p => !('costPrice' in p)) && sa.sales.every(s => !('total' in s) && !('sellPrice' in s)), 'staff get no costs or money');
   const oa = await C('baan', { action: 'getAll', token: owner.token });
-  ok(oa.products.length === 2 && oa.products[0].costPrice === 160 && oa.sales.length === 1 && oa.sales[0].paymentMethod === 'credit', 'owner sees everything, old labels kept');
+  ok(oa.products.length === 3 && oa.products.every(p => p.notForSale === 0) && oa.products.find(p => p.id === 'PRD-1').costPrice === 160 && oa.sales.length === 1 && oa.sales[0].paymentMethod === 'credit', 'owner sees everything, old labels kept');
   ok(JSON.stringify(oa.settings.payments.map(p => p.id)) === '["cash","card","qr"]', 'default payment types');
   for (const a of ['addStock', 'updateProduct', 'archiveProduct', 'saveSettings', 'signOutAll', 'previewTestData', 'clearTestData'])
     ok((await C('baan', { action: a, token: staff.token, id: 'PRD-1', productId: 'PRD-1', add: 1 })).code === 'forbidden', 'staff cannot ' + a);
 
-  const s1 = await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 2, paymentMethod: 'qr', soldBy: 'Lin', total: 1, sellPrice: 1 });
+  const s1 = await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 2, paymentMethod: 'qr', soldBy: 'Lin', total: 1, sellPrice: 1, price: 1 });
   ok(s1.success && s1.sale.total === 900 && s1.sale.costPrice === 160 && s1.newQuantity === 4 && s1.sale.productName === 'Lotus mug · 300ml', 'server sets price, total, cost ' + JSON.stringify(s1));
   ok(/Choose one of/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 1, paymentMethod: 'credit' })).error), 'old label refused for new sales');
   ok(/Only 4 left/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 9, paymentMethod: 'cash' })).error), 'cannot oversell');
@@ -79,6 +84,28 @@ try {
   ok(/test product/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 1, paymentMethod: 'cash', note: '[TEST] x' })).error), 'test sale on a real product refused');
 
   ok((await C('baan', { action: 'addStock', token: owner.token, productId: 'PRD-1', add: 6, costPrice: 170 })).quantity === 10, 'restock adds');
+
+  // A product with no price: the seller types it in; it isn't saved on the product.
+  ok(/no price yet/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-0', quantity: 1, paymentMethod: 'cash' })).error), 'no-price item needs a price at the sale');
+  ok(/no price yet/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-0', quantity: 1, paymentMethod: 'cash', price: -5 })).error), 'typed price must be above 0');
+  const s0 = await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-0', quantity: 2, paymentMethod: 'cash', price: 250 });
+  ok(s0.success && s0.sale.sellPrice === 250 && s0.sale.total === 500, 'typed price used for a no-price item ' + JSON.stringify(s0));
+  ok((await C('baan', { action: 'getAll', token: owner.token })).products.find(p => p.id === 'PRD-0').sellPrice === 0, 'typed price not saved on the product');
+
+  // Not for sale: owner only, kept in inventory, refused at the till.
+  const nf = await C('baan', { action: 'addProduct', token: owner.token, name: 'Kiln shelf set', quantity: 2, notForSale: true });
+  ok(nf.success && nf.product.notForSale === 1 && nf.product.sellPrice === 0, 'owner adds a not-for-sale item without a price ' + JSON.stringify(nf));
+  ok(/not for sale/.test((await C('baan', { action: 'addSale', token: staff.token, productId: nf.product.id, quantity: 1, paymentMethod: 'cash', price: 100 })).error), 'not-for-sale item cannot be sold');
+  const sf = await C('baan', { action: 'addProduct', token: staff.token, name: 'Staff pot', sellPrice: 100, quantity: 1, notForSale: true });
+  ok(sf.success && sf.product.notForSale === 0, 'staff cannot mark not for sale');
+  ok(/sell price above 0/.test((await C('baan', { action: 'addProduct', token: staff.token, name: 'Staff pot 2', quantity: 1, notForSale: true })).error), 'staff still need a price');
+  ok(/sell price above 0/.test((await C('baan', { action: 'updateProduct', token: owner.token, id: nf.product.id, notForSale: false, sellPrice: '' })).error), 'putting it on sale needs a price');
+  ok((await C('baan', { action: 'updateProduct', token: owner.token, id: nf.product.id, notForSale: false, sellPrice: 300 })).success, 'owner puts it on sale with a price');
+  const sold = await C('baan', { action: 'addSale', token: staff.token, productId: nf.product.id, quantity: 1, paymentMethod: 'cash', price: 1 });
+  ok(sold.success && sold.sale.total === 300, 'once on sale it sells at its own price');
+  ok((await C('baan', { action: 'updateProduct', token: owner.token, id: 'PRD-0', notForSale: true, sellPrice: '' })).success, 'owner marks an item not for sale, price optional');
+  const g = (await C('baan', { action: 'getAll', token: staff.token })).products.find(p => p.id === 'PRD-0');
+  ok(g.notForSale === 1 && g.costPrice === undefined, 'staff see the not-for-sale flag (still no cost)');
 
   const tp = await C('baan', { action: 'addProduct', token: staff.token, name: 'Test mug', sellPrice: 100, quantity: 5, costPrice: 40 });
   ok(tp.success && tp.product.costPrice === 0, 'staff add ignores cost');

@@ -65,17 +65,20 @@
       }
       return { left: 5 - lock.fails };
     },
-    async addSale(shop, { productId, quantity, paymentMethod, soldBy, note }) {
+    async addSale(shop, { productId, quantity, paymentMethod, soldBy, note, price }) {
       const d = demoData(shop);
       const p = d.products.find(x => x.id === productId && !x.archived);
       if (!p) throw new Error('That product no longer exists.');
+      if (Number(p.notForSale)) throw new Error('That item is marked not for sale. Ask the owner.');
+      const each = p.sellPrice > 0 ? p.sellPrice : num(price);
+      if (!(each > 0)) throw new Error('This item has no price yet. Enter the price per piece.');
       if (isTestText(note) && !isTestProduct(p)) throw new Error('Test sales must use a test product (with \u201ctest\u201d in its name) so real inventory isn\u2019t changed.');
       const q = Math.floor(num(quantity));
       if (q < 1) throw new Error('Enter a quantity of 1 or more.');
       if (q > p.quantity) throw new Error('Only ' + p.quantity + ' left on the shelf.');
       const now = new Date();
       // The server works out price and total, and saves today's cost with the sale.
-      const sale = { id: 'SALE-' + now.getTime(), productId: p.id, productName: label(p), quantity: q, sellPrice: p.sellPrice, total: q * p.sellPrice, costPrice: p.costPrice || undefined, paymentMethod, saleDate: bkkDate(now), soldBy, note, createdAt: now.toISOString() };
+      const sale = { id: 'SALE-' + now.getTime(), productId: p.id, productName: label(p), quantity: q, sellPrice: each, total: q * each, costPrice: p.costPrice || undefined, paymentMethod, saleDate: bkkDate(now), soldBy, note, createdAt: now.toISOString() };
       d.sales.push(sale);
       p.quantity -= q;
       return sale;
@@ -90,14 +93,16 @@
       return p;
     },
     async addProduct(shop, f) {
-      const p = { id: 'PRD-' + Date.now(), name: f.name, size: f.size, costPrice: num(f.costPrice), sellPrice: num(f.sellPrice), quantity: Math.floor(num(f.quantity)), imageUrl: f.imageUrl || '', addedBy: f.addedBy || '', createdAt: new Date().toISOString() };
+      const p = { id: 'PRD-' + Date.now(), name: f.name, size: f.size, costPrice: num(f.costPrice), sellPrice: num(f.sellPrice), quantity: Math.floor(num(f.quantity)), imageUrl: f.imageUrl || '', addedBy: f.addedBy || '', createdAt: new Date().toISOString(), notForSale: f.notForSale ? 1 : 0 };
       demoData(shop).products.push(p);
       return p;
     },
     async updateProduct(shop, id, f) {
       const p = demoData(shop).products.find(x => x.id === id);
       if (!p) throw new Error('That product no longer exists.');
-      Object.assign(p, { name: f.name, size: f.size, costPrice: num(f.costPrice), sellPrice: num(f.sellPrice), quantity: Math.floor(num(f.quantity)) });
+      // Only the fields sent change, like the live API.
+      const set = { name: f.name, size: f.size, costPrice: f.costPrice === undefined ? undefined : num(f.costPrice), sellPrice: f.sellPrice === undefined ? undefined : num(f.sellPrice), quantity: f.quantity === undefined ? undefined : Math.floor(num(f.quantity)), notForSale: f.notForSale === undefined ? undefined : (f.notForSale ? 1 : 0) };
+      Object.keys(set).forEach(k => { if (set[k] !== undefined) p[k] = set[k]; });
       return p;
     },
     async deleteProduct(shop, id) {
@@ -216,6 +221,8 @@
   const isTestText = v => /^\s*\[test\]/i.test(String(v || ''));
   const isTestProduct = p => isTestName(p.name);
   const isTestSale = s => isTestName(s.productName) || isTestText(s.note);
+  // Owner-only flag: kept in inventory, can't be sold.
+  const notForSale = p => !!Number(p && p.notForSale);
 
-  window.ShopCore = { CFG, num, bkkDate, label, lsGet, lsSet, lsDel, payKind, PAY_LABEL, PAY_ORDER, normalize, isTestProduct, isTestSale, Backends: { demo: Demo, live: Live }, READ_ONLY };
+  window.ShopCore = { CFG, num, bkkDate, label, lsGet, lsSet, lsDel, payKind, PAY_LABEL, PAY_ORDER, normalize, isTestProduct, isTestSale, notForSale, Backends: { demo: Demo, live: Live }, READ_ONLY };
 })();
