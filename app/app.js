@@ -351,9 +351,8 @@
   function strip(short) {
     if (!live()) return `<div class="demo-strip">${short ? 'Sample data · nothing here touches the real shop' : 'Demo mode · sample data only · nothing here touches the real shop data'}</div>`;
     if (Backends.live.local) return `<div class="demo-strip live">${short ? 'Local test copy on this computer' : 'Local test · shop API on this computer · changes stay on this computer'}</div>`;
-    // Staff don't need the reminder; the owner sees it because she edits products and can add test items.
-    if (S.role !== 'owner') return '';
-    return `<div class="demo-strip real">${short ? `Live · saves to the real ${esc(SHOPS[S.shop].name)} data` : `Live · changes save to the real ${esc(SHOPS[S.shop].name)} data · to try things out, put “test” in a product name`}</div>`;
+    // Live shop data: no banner (the app is normally on the real data).
+    return '';
   }
   // Phone header: shop name on the left; switch-shop, refresh and sign-out on the right. It stays at the top when scrolling.
   function phoneHeader(shop, roleName) {
