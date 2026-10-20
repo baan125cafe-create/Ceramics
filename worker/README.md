@@ -198,7 +198,7 @@ The merge includes a `CNAME` file that moves the site to `milkyanyong.shop`.
 1. In the repo on GitHub, open **Settings → Pages**. **Custom domain** should show `milkyanyong.shop`; if it's empty, enter it and save.
 2. Wait for the DNS check to pass and the certificate to be issued. This can take up to an hour.
 3. Tick **Enforce HTTPS**.
-4. Recommended: verify the domain under the organization's **Settings → Pages → Verified domains**, so no one else can use it on GitHub.
+4. Recommended: verify the domain so no one else can use it on GitHub. `baan125cafe-create` is a personal account, so only its owner can do steps 1–4 (collaborators can't open repo Settings). The verified domain is in the account's settings, not the repo's: profile picture → **Settings → Pages → Add a domain**. Add the TXT record GitHub shows in Cloudflare (**DNS → Records**, name `_github-pages-challenge-baan125cafe-create`), then click **Verify**. Leave the record in place afterwards.
 
 The old `github.io` address then redirects to `milkyanyong.shop`, and old bookmarks to `owner.html` or `staff.html` land on the app.
 
