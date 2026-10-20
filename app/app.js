@@ -958,11 +958,21 @@
       <div class="pin-err" id="sell-err" role="alert" style="color:var(--bad)"></div>
       <div class="sum-row" id="sell-sum">${sellSum()}</div>
       ${previewNote()}
-      <button type="button" class="btn primary block" id="sell-save" data-act="save-sale" ${readOnly() ? 'disabled' : ''}>${sellBtn()}</button>`, 'Record a sale');
+      <button type="button" class="btn primary block" id="sell-save" data-act="save-sale" ${readOnly() || sellMissing().length ? 'disabled' : ''}>${sellBtn()}</button>
+      <p class="muted small" id="sell-need" style="margin:0;text-align:center">${sellNeed()}</p>`, 'Record a sale');
   }
   // Price per piece for the sale: the product's price, or the one typed in if it has none.
   const sellEach = () => { const p = shown().find(x => x.id === sell.productId); return !p ? 0 : p.sellPrice > 0 ? p.sellPrice : num(sell.price); };
   const sellSum = () => { const e = sellEach(), payLabel = (activePays().find(x => x.id === sell.pay) || {}).label || ''; return `<span class="muted">${sell.qty} × ${e > 0 ? money(e) : '—'} · ${esc(payLabel)}</span><b>${money(sell.qty * e)}</b>`; };
+  // What's still missing before the sale can be recorded; the button stays off until it's all there.
+  const sellMissing = () => {
+    const m = [], p = shown().find(x => x.id === sell.productId);
+    if (!p) m.push('product');
+    else if (!(sellEach() > 0)) m.push('price per piece');
+    if (!sell.who) m.push('sold by');
+    return m;
+  };
+  const sellNeed = () => { const m = sellMissing(); return m.length && !readOnly() ? 'Still needed: ' + m.join(' · ') : ''; };
   const sellBtn = () => readOnly() ? 'Saving is off in this preview' : 'Record sale · ' + money(sell.qty * sellEach());
   function saveSale() {
     const err = m => { $('#sell-err').textContent = m; };
@@ -1248,6 +1258,7 @@
       // Update the total as the price is typed, without redrawing (keeps the keyboard open).
       sell.price = e.target.value;
       $('#sell-sum').innerHTML = sellSum(); $('#sell-save').textContent = sellBtn();
+      $('#sell-save').disabled = readOnly() || sellMissing().length > 0; $('#sell-need').textContent = sellNeed();
       return;
     }
     const key = e.target.dataset.input;
