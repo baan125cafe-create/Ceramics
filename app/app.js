@@ -163,9 +163,15 @@
   const lowOn = () => SHOPS[S.shop].lowStock !== false;
   const status = p => num(p.quantity) <= 0 ? 'out' : (lowOn() && num(p.quantity) <= settings().lowAt ? 'low' : 'ok');
 
-  // Appearance always follows the device (light or dark). An older saved choice is cleared.
-  try { localStorage.removeItem('b125_theme'); } catch (e) { /* ignore */ }
-  document.documentElement.removeAttribute('data-theme');
+  // Appearance: Automatic (follows the device), Light or Dark. Saved on this device only.
+  const themePref = () => { const t = lsGet('b125_theme'); return t === 'light' || t === 'dark' ? t : 'auto'; };
+  function applyTheme() {
+    const t = themePref(), root = document.documentElement;
+    if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
+    const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', dark ? '#3A2D22' : '#FFFFFF'); if (t !== 'auto') m.removeAttribute('media'); });
+  }
+  applyTheme();
 
   const ROUTES = {
     owner: [['dashboard', 'Dashboard', 'chart'], ['stock', 'Inventory', 'box'], ['add', 'Add product', 'add'], ['sales', 'Sales', 'list'], ['settings', 'Settings', 'gear']],
@@ -416,7 +422,7 @@
   function resetForShop() {
     closeSheet(); closeConfirm();
     sell = restock = onSale = editing = null;
-    Object.assign(S.ui, { stockFilter: 'all', stockQ: '', staffTab: 'in', sellQ: '', salesPay: 'all', salesQ: '', reportTo: '', reportErr: '' });
+    Object.assign(S.ui, { stockFilter: 'all', stockQ: '', staffTab: 'in', sellQ: '', salesPay: 'all', salesQ: '', reportErr: '' });
   }
   function switchShop() {
     const next = otherShop(), route = S.route;
@@ -837,6 +843,7 @@
         <section class="card tool">
           <h2>Data check</h2>
           <p class="muted small" style="margin:0">How the ${plural(chk.nSales, 'sale')} and ${plural(chk.nProducts, 'product')} ${live() ? 'in the shop data' : 'in this sample'} line up with the payment types. Nothing here changes data.</p>
+          <p class="muted small" style="margin:0">${live() ? `${Backends.live.local ? 'Local test copy on this computer' : 'Stored on Cloudflare'} · <span style="word-break:break-all">${esc(Backends.live.api)}</span>` : 'Sample data in this browser only'}</p>
           <div class="table-wrap" style="background:var(--surface-2)"><table>
             <thead><tr><th>Saved as</th><th>Shown as</th><th class="num">Sales</th><th class="num">Total</th></tr></thead>
             <tbody>${chk.pays.map(x => `<tr><td>${esc(x.raw)}</td><td><span class="pill pay-${x.info.kind}">${esc(x.info.kind === 'other' ? 'Other (' + x.raw + ')' : x.info.label)}</span></td><td class="num">${x.n.toLocaleString('en-US')}</td><td class="num">${money(x.total)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales yet.</td></tr>'}</tbody>
@@ -854,10 +861,13 @@
           <h2>Test data</h2>
           ${testCard()}
         </section>
-        <section class="card tool">
-          <h2>${live() ? 'Shop data' : 'Sample data'}</h2>
-          ${live() ? `<div class="set-row"><div><b>${Backends.live.local ? 'Local test copy' : 'Stored on Cloudflare'}</b><small style="word-break:break-all">${esc(Backends.live.api)}</small></div></div>`
-            : `<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div>${actBtn('undo', 'Reset sample data', 'data-act="reset"')}</div>`}
+        <section class="card">
+          <h2>Email reports</h2>
+          <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time, to the address set up on Cloudflare. Send one now to check they arrive.</p>
+          <div class="pin-err" id="mail-err" role="alert" style="color:var(--bad);text-align:left">${esc(S.ui.reportErr || '')}</div>
+          <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div>${actBtn('send', 'Send today’s report now', `data-report="daily" ${live() ? '' : 'disabled'}`)}</div>
+          <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div>${actBtn('send', 'Send last month’s report now', `data-report="monthly" ${live() ? '' : 'disabled'}`)}</div>
+          ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
         </section>
         </div>
         <div class="settings-col">
@@ -884,16 +894,9 @@
           </form>
         </section>
         <section class="card">
-          <h2>Email reports</h2>
-          <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time. Send one now to check the emails arrive.</p>
-          <label class="field" for="report-to">Send a test to (optional)
-            <input id="report-to" type="email" inputmode="email" autocomplete="email" placeholder="Leave empty for the usual address" maxlength="120" value="${esc(S.ui.reportTo || '')}" data-input="reportTo">
-            <span class="hint">Used for this one email only and not saved. Scheduled reports always go to the address set up on Cloudflare.</span>
-          </label>
-          <div class="pin-err" id="mail-err" role="alert" style="color:var(--bad);text-align:left">${esc(S.ui.reportErr || '')}</div>
-          <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div>${actBtn('send', 'Send today’s report now', `data-report="daily" ${live() ? '' : 'disabled'}`)}</div>
-          <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div>${actBtn('send', 'Send last month’s report now', `data-report="monthly" ${live() ? '' : 'disabled'}`)}</div>
-          ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
+          <h2>Appearance</h2>
+          <p class="muted small" style="margin:0">Automatic follows this phone or computer’s light or dark setting. Saved on this device only.</p>
+          <div class="seg" role="group" aria-label="Appearance">${[['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([k, t]) => `<button type="button" data-theme-pick="${k}" aria-pressed="${themePref() === k}">${t}</button>`).join('')}</div>
         </section>
         </div>
       </div>`;
@@ -904,7 +907,8 @@
     const names = tp.map(p => label(p)).slice(0, 6);
     return `<p class="muted small" style="margin:0">To try things out, add a product with <b>test</b> in its name (any case, like “Test mug”) and sell it. Test rows are left out of every total and report.</p>
       <div class="set-row"><div><b>${plural(tp.length, 'test product')} · ${plural(ts.length, 'test sale')}</b><small>${names.length ? esc(names.join(', ')) + (tp.length > names.length ? '…' : '') : 'Nothing to clear.'}</small></div>
-      ${actBtn('trash', 'Clear test data', `data-act="clear-tests" ${!tp.length && !ts.length || readOnly() || (live() && S.role !== 'owner') ? 'disabled' : ''}`, 'danger')}</div>`;
+      ${actBtn('trash', 'Clear test data', `data-act="clear-tests" ${!tp.length && !ts.length || readOnly() || (live() && S.role !== 'owner') ? 'disabled' : ''}`, 'danger')}</div>
+      ${live() ? '' : `<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div>${actBtn('undo', 'Reset sample data', 'data-act="reset"')}</div>`}`;
   }
 
   // ---------- sheets (sell, restock, edit) ----------
@@ -1126,15 +1130,13 @@
     }
     if (d.report) {
       if (!live() || sendReport.busy) return;
-      const to = (($('#report-to') || {}).value || '').trim().toLowerCase(), err = $('#mail-err');
+      const to = '', err = $('#mail-err');
       S.ui.reportErr = ''; if (err) err.textContent = '';
-      if (to && !/^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i.test(to)) { S.ui.reportErr = 'That doesn’t look like an email address (like name@gmail.com).'; if (err) err.textContent = S.ui.reportErr; return; }
-      S.ui.reportTo = to;
       const kind = d.report;
       return confirmAction({
         title: kind === 'monthly' ? 'Send last month’s report now?' : 'Send today’s report now?', danger: false,
-        body: `It goes to ${to || 'the usual address set up on Cloudflare'}.`,
-        keep: to ? 'This address is used for this one email only and isn’t saved.' : 'The scheduled reports still go out as usual.',
+        body: 'It goes to the address set up on Cloudflare.',
+        keep: 'The scheduled reports still go out as usual.',
         confirm: 'Send',
         onConfirm: () => {
       sendReport.busy = true; el.disabled = true; el.classList.add('busy'); toast('Sending…');
@@ -1159,6 +1161,7 @@
     if (d.stafftab) { S.ui.staffTab = d.stafftab; return renderView(); }
     if (d.restock) return openRestock(d.restock);
     if (d.onsale) return openOnSale(d.onsale);
+    if (d.themePick) { if (d.themePick === 'auto') { try { localStorage.removeItem('b125_theme'); } catch (e) { /* ignore */ } } else lsSet('b125_theme', d.themePick); applyTheme(); return renderView(); }
     if (d.salestatus) {
       // For sale / Not for sale switch in the add and edit forms.
       const f = el.closest('form'), nfs = d.salestatus === 'nfs';
