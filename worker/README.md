@@ -250,7 +250,7 @@ This shop uses a tiny fraction of each. Loading the app reads about 1,000 rows, 
 
 ## PINs
 
-`npm run set-pin -- --shop baan|chud --role owner|staff` asks for the PIN twice, hidden. It stores only a salted, scrambled value as a Cloudflare secret. PINs never go in the code, the repo, or the database. After changing a PIN, use **Settings → Sign all out** in the app.
+`npm run set-pin -- --shop baan|chud --role owner|staff` asks for the PIN twice, hidden. It stores only a salted, scrambled value as a Cloudflare secret. PINs never go in the code, the repo, or the database. After changing a PIN, use **Settings → Signed-in devices → Sign out** in the app.
 
 After wrong PINs, sign-in reopens by itself after 15 minutes, then 1 hour, then 24 hours. To clear the pause sooner:
 

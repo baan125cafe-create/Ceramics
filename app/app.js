@@ -789,9 +789,9 @@
           <h2>Access</h2>
           ${live() ? '<p class="muted small" style="margin:0">PINs are changed from a computer with the shop’s setup tools, so they never pass through this app.</p>' : ''}
           <div>
-            <div class="set-row"><div><b>Owner PIN</b><small>Everything, including this page</small></div><button type="button" class="btn" data-act="pin-later">Change</button></div>
-            <div class="set-row"><div><b>Staff PIN</b><small>Inventory, add product and sell</small></div><button type="button" class="btn" data-act="pin-later">Change</button></div>
-            <div class="set-row"><div><b>Signed-in devices</b><small>Sign out every phone and computer, for example after a staff change</small></div><button type="button" class="btn danger" data-act="signout-all">Sign all out</button></div>
+            <div class="set-row"><div><b>Owner PIN</b><small>Everything, including this page</small></div><button type="button" class="btn set-btn" data-act="pin-later">Change</button></div>
+            <div class="set-row"><div><b>Staff PIN</b><small>Inventory, add product and sell</small></div><button type="button" class="btn set-btn" data-act="pin-later">Change</button></div>
+            <div class="set-row"><div><b>Signed-in devices</b><small>Sign out every phone and computer, for example after a staff change</small></div><button type="button" class="btn danger set-btn" data-act="signout-all" aria-label="Sign out every device">Sign out</button></div>
           </div>
         </section>
         <section class="card tool">
