@@ -99,6 +99,7 @@ try {
   const sf = await C('baan', { action: 'addProduct', token: staff.token, name: 'Staff pot', sellPrice: 100, quantity: 1, notForSale: true });
   ok(sf.success && sf.product.notForSale === 0, 'staff cannot mark not for sale');
   ok(/sell price above 0/.test((await C('baan', { action: 'addProduct', token: staff.token, name: 'Staff pot 2', quantity: 1, notForSale: true })).error), 'staff still need a price');
+  ok(/1 or more/.test((await C('baan', { action: 'addProduct', token: owner.token, name: 'Empty pot', sellPrice: 100, quantity: 0 })).error), 'a new product needs at least 1 piece');
   ok(/sell price above 0/.test((await C('baan', { action: 'updateProduct', token: owner.token, id: nf.product.id, notForSale: false, sellPrice: '' })).error), 'putting it on sale needs a price');
   ok((await C('baan', { action: 'updateProduct', token: owner.token, id: nf.product.id, notForSale: false, sellPrice: 300 })).success, 'owner puts it on sale with a price');
   const sold = await C('baan', { action: 'addSale', token: staff.token, productId: nf.product.id, quantity: 1, paymentMethod: 'cash', price: 1 });

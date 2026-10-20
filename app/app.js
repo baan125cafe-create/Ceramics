@@ -61,6 +61,12 @@
     list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></svg>',
+    send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>',
+    undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+    // Price tag: "Ready to sell" on not-for-sale items.
+    tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
     out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>',
@@ -103,6 +109,10 @@
   const testBadge = p => (isTestProduct(p) ? '<span class="pill test">TEST</span> ' : '') + (notForSale(p) ? '<span class="pill nfs">Not for sale</span> ' : '');
   // What a product sells for, or a hint when it has no price yet.
   const priceText = p => notForSale(p) ? (p.sellPrice > 0 ? money(p.sellPrice) : 'No price') : (p.sellPrice > 0 ? money(p.sellPrice) : 'Price at sale');
+  // Round icon button for an action (Settings, inventory rows). The label is read out and shown on hover.
+  // Who to ask for a PIN change (PINs are set on Cloudflare, not in the app).
+  const PIN_CONTACT = 'paul.leejw@gmail.com';
+  const actBtn = (icon, labelText, attrs, tone) => `<button type="button" class="icon-btn add-btn${tone ? ' ' + tone : ''}" aria-label="${esc(labelText)}" title="${esc(labelText)}" ${attrs}>${I[icon]}</button>`;
   const sellable = p => p.quantity > 0 && !notForSale(p);
 
   // Per-shop settings. Live: stored with the shop data, so every phone gets the same.
@@ -600,7 +610,7 @@
     return `
       <div class="page-head">
         <div><h1>Inventory</h1><div class="muted small">${plural(prods.length, 'product')} · ${inStock} in stock</div></div>
-        <button type="button" class="btn dark" data-go="add">${I.plus}New product</button>
+        <button type="button" class="btn dark" data-go="add">${I.plus}Product</button>
       </div>
       <div class="toolbar">
         <label class="search">${I.search}<span class="sr-only">Search products</span><input id="stock-q" type="search" placeholder="Search products" value="${esc(S.ui.stockQ)}" data-input="stockQ"></label>
@@ -631,8 +641,8 @@
           <span class="row-sub">${[priceText(p), 'cost ' + (p.costPrice > 0 ? money(p.costPrice) : '—'), margin].filter(Boolean).join(' · ')}</span>
           <span class="stockbar"><span class="track"><i class="fill-${st}" style="width:${Math.max(0, Math.min(100, p.quantity / maxQ * 100)).toFixed(0)}%"></i></span><b class="tone-${st}">${st === 'out' ? (notForSale(p) ? 'None left' : 'Sold out') : p.quantity + (notForSale(p) ? ' kept' : ' left')}</b></span>
         </button>
-        ${notForSale(p) ? `<button type="button" class="btn" data-onsale="${esc(p.id)}" aria-label="Put ${esc(label(p))} on sale">Ready to sell</button>`
-          : `<button type="button" class="btn" data-restock="${esc(p.id)}" aria-label="Add inventory for ${esc(label(p))}">+ Add</button>`}
+        ${notForSale(p) ? `<button type="button" class="icon-btn add-btn" data-onsale="${esc(p.id)}" aria-label="Ready to sell: put ${esc(label(p))} on sale" title="Ready to sell">${I.tag}</button>`
+          : `<button type="button" class="icon-btn add-btn" data-restock="${esc(p.id)}" aria-label="Add inventory for ${esc(label(p))}" title="Add inventory">${I.plus}</button>`}
       </li>`;
     }).join('') : `<li class="empty">${q ? 'No product matches that search.' : 'Nothing here.'}</li>`;
   }
@@ -704,18 +714,35 @@
           <label class="btn" for="add-photo">Choose photo</label>
           <input id="add-photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" class="sr-only">
         </div>
-        <label class="field" for="add-name">Product name<input id="add-name" name="name" required placeholder="e.g. Lotus mug"></label>
-        <label class="field" for="add-size">Size<input id="add-size" name="size" placeholder="e.g. 300ml"></label>
+        <label class="field" for="add-name">Product name<input id="add-name" name="name" required placeholder="e.g. ${esc(SHOPS[S.shop].nameHint || 'Lotus mug')}"></label>
+        <label class="field" for="add-size">Size<input id="add-size" name="size" placeholder="e.g. ${esc(SHOPS[S.shop].sizeHint || '300 ml')}"></label>
         ${S.role === 'owner' ? `<div class="grid-2">
           <label class="field" for="add-cost">Cost price (฿)<input id="add-cost" name="costPrice" type="number" min="0" inputmode="decimal" placeholder="150"></label>
           <label class="field" for="add-sell">Sell price (฿)<input id="add-sell" name="sellPrice" type="number" min="0" inputmode="decimal" placeholder="450" required></label>
         </div>
         ${nfsCheck('add', false)}` : `<label class="field" for="add-sell">Sell price (฿)<input id="add-sell" name="sellPrice" type="number" min="0" inputmode="decimal" placeholder="450" required><span class="hint">The owner adds the cost price. Once saved, only the owner can change it.</span></label>`}
-        <label class="field" for="add-qty">Quantity<input id="add-qty" name="quantity" type="number" min="0" inputmode="numeric" placeholder="10" required></label>
+        <label class="field" for="add-qty">Quantity<input id="add-qty" name="quantity" type="number" min="1" inputmode="numeric" placeholder="10" required></label>
         <div class="muted small" id="add-margin" aria-live="polite"></div>
         <div class="pin-err" id="add-err" role="alert" style="color:var(--bad)"></div>
-        <button type="submit" class="btn primary block">${readOnly() ? 'Saving is off in this preview' : 'Add product'}</button>
+        <button type="submit" class="btn primary block" id="add-save" disabled>${readOnly() ? 'Saving is off in this preview' : 'Add product'}</button>
+        <p class="muted small" id="add-need" style="margin:0;text-align:center">${readOnly() ? '' : 'Still needed: product name · sell price · quantity of 1 or more'}</p>
       </form>`;
+  }
+  // Add product: the button stays off until there's a name, a price (unless not for sale) and at least 1 piece.
+  function addMissing(f) {
+    const v = k => (f.elements[k] && f.elements[k].value || '').trim();
+    const nfs = S.role === 'owner' && !!(f.elements.notForSale && f.elements.notForSale.value === '1');
+    const m = [];
+    if (!v('name')) m.push('product name');
+    if (!nfs && !(num(v('sellPrice')) > 0)) m.push('sell price');
+    if (!(Math.floor(num(v('quantity'))) >= 1)) m.push('quantity of 1 or more');
+    return m;
+  }
+  function updateAddForm() {
+    const f = $('#add-form'); if (!f) return;
+    const m = addMissing(f);
+    $('#add-save').disabled = readOnly() || m.length > 0;
+    $('#add-need').textContent = m.length && !readOnly() ? 'Still needed: ' + m.join(' · ') : '';
   }
 
   // ----- sales (owner) -----
@@ -785,11 +812,9 @@
         <div class="settings-col">
         <section class="card">
           <h2>Access</h2>
-          ${live() ? '<p class="muted small" style="margin:0">PINs are changed from a computer with the shop’s setup tools, so they never pass through this app.</p>' : ''}
+          <p class="muted small" style="margin:0">The owner PIN opens everything; the staff PIN opens inventory, add product and sell. PINs are kept on Cloudflare and never pass through this app. To change one, email Paul at <a href="mailto:${PIN_CONTACT}?subject=${encodeURIComponent('Change a PIN for ' + SHOPS[S.shop].name)}">${PIN_CONTACT}</a>.</p>
           <div>
-            <div class="set-row"><div><b>Owner PIN</b><small>Everything, including this page</small></div><button type="button" class="btn" data-act="pin-later">Change</button></div>
-            <div class="set-row"><div><b>Staff PIN</b><small>Inventory, add product and sell</small></div><button type="button" class="btn" data-act="pin-later">Change</button></div>
-            <div class="set-row"><div><b>Signed-in devices</b><small>Sign out every phone and computer, for example after a staff change</small></div><button type="button" class="btn danger" data-act="signout-all">Sign all out</button></div>
+            <div class="set-row"><div><b>Signed-in devices</b><small>Sign out every phone and computer, for example after a staff change</small></div>${actBtn('out', 'Sign out every device', 'data-act="signout-all"', 'danger')}</div>
           </div>
         </section>
         <section class="card tool">
@@ -815,7 +840,7 @@
         <section class="card tool">
           <h2>${live() ? 'Shop data' : 'Sample data'}</h2>
           ${live() ? `<div class="set-row"><div><b>${Backends.live.local ? 'Local test copy' : 'Stored on Cloudflare'}</b><small style="word-break:break-all">${esc(Backends.live.api)}</small></div></div>`
-            : '<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div><button type="button" class="btn" data-act="reset">Reset</button></div>'}
+            : `<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div>${actBtn('undo', 'Reset sample data', 'data-act="reset"')}</div>`}
         </section>
         </div>
         <div class="settings-col">
@@ -823,9 +848,9 @@
           <h2>Staff names</h2>
           <p class="muted small" style="margin:0">Staff tap their name when they sell, so reports don’t split one person into "Nok" and "nok". ${live() ? 'Saved with the shop data, so every phone gets the same list.' : 'Saved on this device for now.'}</p>
           <div class="chips">${names.length ? names.map((n, i) => `<span class="name-chip">${esc(n)}<button type="button" data-rmstaff="${i}" aria-label="Remove ${esc(n)}">${I.close}</button></span>`).join('') : '<span class="muted small">No names yet.</span>'}</div>
-          <form id="staff-form" class="toolbar" novalidate>
-            <label class="field" for="staff-new" style="flex:1 1 180px">Add a name<input id="staff-new" placeholder="e.g. Ploy" maxlength="30"></label>
-            <button type="submit" class="btn" style="align-self:flex-end">Add</button>
+          <form id="staff-form" class="add-row" novalidate>
+            <label class="field" for="staff-new">Add a name<input id="staff-new" placeholder="e.g. Ploy" maxlength="30"></label>
+            <button type="submit" class="icon-btn add-btn wide" aria-label="Add this name" title="Add">${I.plus}</button>
           </form>
         </section>
         <section class="card">
@@ -834,11 +859,11 @@
           <div class="pay-types">${payTypes().map((t, i) => `<div class="pay-type">
               <label class="sr-only" for="pt-${i}">Name of payment type ${i + 1}</label>
               <input id="pt-${i}" class="inline-input" data-ptname="${i}" value="${esc(t.label)}" maxlength="30" ${t.retired ? 'disabled' : ''}>
-              <button type="button" class="btn" data-ptoggle="${i}">${t.retired ? 'Switch on' : 'Switch off'}</button>
+              <button type="button" class="switch" role="switch" aria-checked="${!t.retired}" data-ptoggle="${i}" aria-label="${esc(t.label)}: ${t.retired ? 'switched off' : 'switched on'}" title="${t.retired ? 'Switch on' : 'Switch off'}"><i></i></button>
               ${t.retired ? '<small>Switched off · past sales still show this name</small>' : ''}</div>`).join('')}</div>
-          <form id="pay-form" class="toolbar" novalidate>
-            <label class="field" for="pay-new" style="flex:1 1 180px">Add a type<input id="pay-new" placeholder="e.g. Alipay" maxlength="30"></label>
-            <button type="submit" class="btn" style="align-self:flex-end">Add</button>
+          <form id="pay-form" class="add-row" novalidate>
+            <label class="field" for="pay-new">Add a type<input id="pay-new" class="inline-input" placeholder="e.g. Alipay" maxlength="30"></label>
+            <button type="submit" class="icon-btn add-btn wide" aria-label="Add this payment type" title="Add">${I.plus}</button>
           </form>
         </section>
         <section class="card">
@@ -849,8 +874,8 @@
             <span class="hint">Used for this one email only and not saved. Scheduled reports always go to the address set up on Cloudflare.</span>
           </label>
           <div class="pin-err" id="mail-err" role="alert" style="color:var(--bad);text-align:left">${esc(S.ui.reportErr || '')}</div>
-          <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div><button type="button" class="btn" data-report="daily" ${live() ? '' : 'disabled'}>Send now</button></div>
-          <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div><button type="button" class="btn" data-report="monthly" ${live() ? '' : 'disabled'}>Send now</button></div>
+          <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div>${actBtn('send', 'Send today’s report now', `data-report="daily" ${live() ? '' : 'disabled'}`)}</div>
+          <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div>${actBtn('send', 'Send last month’s report now', `data-report="monthly" ${live() ? '' : 'disabled'}`)}</div>
           ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
         </section>
         </div>
@@ -862,7 +887,7 @@
     const names = tp.map(p => label(p)).slice(0, 6);
     return `<p class="muted small" style="margin:0">To try things out, add a product with <b>test</b> in its name (any case, like “Test mug”) and sell it. Test rows are left out of every total and report.</p>
       <div class="set-row"><div><b>${plural(tp.length, 'test product')} · ${plural(ts.length, 'test sale')}</b><small>${names.length ? esc(names.join(', ')) + (tp.length > names.length ? '…' : '') : 'Nothing to clear.'}</small></div>
-      <button type="button" class="btn danger" data-act="clear-tests" ${!tp.length && !ts.length || readOnly() || (live() && S.role !== 'owner') ? 'disabled' : ''}>Clear…</button></div>`;
+      ${actBtn('trash', 'Clear test data', `data-act="clear-tests" ${!tp.length && !ts.length || readOnly() || (live() && S.role !== 'owner') ? 'disabled' : ''}`, 'danger')}</div>`;
   }
 
   // ---------- sheets (sell, restock, edit) ----------
@@ -896,18 +921,18 @@
 
   // ---------- confirm step for anything destructive ----------
   let pendingConfirm = null;
-  function confirmAction({ title, body, keep, confirm, danger = true, onConfirm }) {
+  function confirmAction({ title, body, keep, confirm, danger = true, onConfirm, info = false }) {
     pendingConfirm = onConfirm;
     const root = $('#confirm-root');
     root.innerHTML = `<div class="overlay confirm" data-confirm-scrim="1"><div class="sheet confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-body" tabindex="-1">
-      <div class="confirm-icon ${danger ? 'danger' : ''}" aria-hidden="true">${I.warn}</div>
+      <div class="confirm-icon ${danger ? 'danger' : ''}" aria-hidden="true">${info ? I.info : I.warn}</div>
       <h2 id="confirm-title">${esc(title)}</h2>
       <div id="confirm-body" class="confirm-text"><p>${esc(body)}</p>${keep ? `<p class="keep">${esc(keep)}</p>` : ''}</div>
-      <div class="confirm-actions">
-        <button type="button" class="btn" data-confirm="no">Cancel</button>
+      <div class="confirm-actions${info ? ' one' : ''}">
+        ${info ? '' : '<button type="button" class="btn" data-confirm="no">Cancel</button>'}
         <button type="button" class="btn ${danger ? 'danger-solid' : 'dark'}" data-confirm="yes">${esc(confirm)}</button>
       </div></div></div>`;
-    $('[data-confirm="no"]', root).focus();
+    $(info ? '[data-confirm="yes"]' : '[data-confirm="no"]', root).focus();
   }
   function closeConfirm() { $('#confirm-root').innerHTML = ''; pendingConfirm = null; }
 
@@ -950,12 +975,22 @@
       <div class="pin-err" id="sell-err" role="alert" style="color:var(--bad)"></div>
       <div class="sum-row" id="sell-sum">${sellSum()}</div>
       ${previewNote()}
-      <button type="button" class="btn primary block" id="sell-save" data-act="save-sale" ${readOnly() ? 'disabled' : ''}>${sellBtn()}</button>`, 'Record a sale');
+      <button type="button" class="btn primary block" id="sell-save" data-act="save-sale" ${readOnly() || sellMissing().length ? 'disabled' : ''}>${sellBtn()}</button>
+      <p class="muted small" id="sell-need" style="margin:0;text-align:center">${sellNeed()}</p>`, 'Record a sale');
   }
   // Price per piece for the sale: the product's price, or the one typed in if it has none.
   const sellEach = () => { const p = shown().find(x => x.id === sell.productId); return !p ? 0 : p.sellPrice > 0 ? p.sellPrice : num(sell.price); };
   const sellSum = () => { const e = sellEach(), payLabel = (activePays().find(x => x.id === sell.pay) || {}).label || ''; return `<span class="muted">${sell.qty} × ${e > 0 ? money(e) : '—'} · ${esc(payLabel)}</span><b>${money(sell.qty * e)}</b>`; };
-  const sellBtn = () => readOnly() ? 'Saving is off in this preview' : 'Save sale · ' + money(sell.qty * sellEach());
+  // What's still missing before the sale can be recorded; the button stays off until it's all there.
+  const sellMissing = () => {
+    const m = [], p = shown().find(x => x.id === sell.productId);
+    if (!p) m.push('product');
+    else if (!(sellEach() > 0)) m.push('price per piece');
+    if (!sell.who) m.push('sold by');
+    return m;
+  };
+  const sellNeed = () => { const m = sellMissing(); return m.length && !readOnly() ? 'Still needed: ' + m.join(' · ') : ''; };
+  const sellBtn = () => readOnly() ? 'Saving is off in this preview' : 'Record sale · ' + money(sell.qty * sellEach());
   function saveSale() {
     const err = m => { $('#sell-err').textContent = m; };
     if (!sell.productId) return err('Choose the product first.');
@@ -1023,7 +1058,7 @@
       ${sheetHead('Edit product', esc(label(p)), p)}
       <form id="edit-form" style="display:flex;flex-direction:column;gap:12px" novalidate>
         <label class="field" for="edit-name">Product name<input id="edit-name" name="name" value="${esc(p.name)}" required></label>
-        <label class="field" for="edit-size">Size<input id="edit-size" name="size" value="${esc(p.size)}"></label>
+        <label class="field" for="edit-size">Size<input id="edit-size" name="size" value="${esc(p.size)}" placeholder="e.g. ${esc(SHOPS[S.shop].sizeHint || '300 ml')}"></label>
         <div class="grid-2">
           <label class="field" for="edit-cost">Cost price (฿)<input id="edit-cost" name="costPrice" type="number" min="0" value="${p.costPrice || ''}" placeholder="Missing"></label>
           <label class="field" for="edit-sell">Sell price (฿)<input id="edit-sell" name="sellPrice" type="number" min="0" value="${p.sellPrice > 0 ? p.sellPrice : ''}" placeholder="${notForSale(p) ? 'Optional' : 'Required'}"></label>
@@ -1077,11 +1112,20 @@
       S.ui.reportErr = ''; if (err) err.textContent = '';
       if (to && !/^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i.test(to)) { S.ui.reportErr = 'That doesn’t look like an email address (like name@gmail.com).'; if (err) err.textContent = S.ui.reportErr; return; }
       S.ui.reportTo = to;
-      sendReport.busy = true; el.disabled = true; el.textContent = 'Sending…';
-      return backend().sendReport(S.shop, d.report, to)
+      const kind = d.report;
+      return confirmAction({
+        title: kind === 'monthly' ? 'Send last month’s report now?' : 'Send today’s report now?', danger: false,
+        body: `It goes to ${to || 'the usual address set up on Cloudflare'}.`,
+        keep: to ? 'This address is used for this one email only and isn’t saved.' : 'The scheduled reports still go out as usual.',
+        confirm: 'Send',
+        onConfirm: () => {
+      sendReport.busy = true; el.disabled = true; el.classList.add('busy'); toast('Sending…');
+      return backend().sendReport(S.shop, kind, to)
         .then(r => toast(`Sent the ${r.kind === 'monthly' ? r.period + ' report' : 'daily report'} (${plural(r.sales, 'sale')}) to ${r.to || plural(r.recipients, 'address', 'addresses')}`))
         .catch(e => { if (e.code === 'auth') { toast(e.message); return signOut(); } S.ui.reportErr = e.message; })
         .finally(() => { sendReport.busy = false; if (S.route === 'settings') renderView(); });
+        }
+      });
     }
     if (d.ptoggle) {
       const t = payTypes()[Number(d.ptoggle)];
@@ -1103,7 +1147,7 @@
       f.elements.notForSale.value = nfs ? '1' : '';
       el.parentElement.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b === el)));
       const price = f.elements.sellPrice; if (price) price.placeholder = nfs ? 'Optional' : 'Required';
-      return;
+      return updateAddForm();
     }
     if (d.edit) return openEdit(d.edit);
     if (d.sell) return openSell(d.sell);
@@ -1130,7 +1174,6 @@
       case 'save-onsale': return saveOnSale();
       case 'refresh': return loadData(true).then(() => toast('Data refreshed'));
       case 'export': return exportCsv();
-      case 'pin-later': return toast(live() ? 'PINs are changed from a computer: npm run set-pin (see worker/README.md).' : 'In the live app, PINs are changed from a computer.');
       case 'retry-detect': delete Backends.live.info[S.shop]; return renderSignIn();
       case 'switch-shop': return switchShop();
       case 'clear-tests': return (async () => {
@@ -1160,7 +1203,7 @@
         title: 'Sign out every device?',
         body: 'Every signed-in phone and computer, including this one, will need the PIN again. Anyone mid-sale has to sign back in first.',
         keep: 'Sales and stock are not affected. Use this after a staff member leaves or a PIN is shared.',
-        confirm: 'Sign all out',
+        confirm: 'Sign out all',
         onConfirm: () => {
           if (live()) return write(() => backend().signOutAll(S.shop), () => { toast('Every device is signed out.'); signOut(); });
           toast('In the live app, every device is now signed out.');
@@ -1228,10 +1271,12 @@
   });
 
   document.addEventListener('input', e => {
+    if (e.target.closest && e.target.closest('#add-form')) updateAddForm();
     if (e.target.id === 'sell-price' && sell) {
       // Update the total as the price is typed, without redrawing (keeps the keyboard open).
       sell.price = e.target.value;
       $('#sell-sum').innerHTML = sellSum(); $('#sell-save').textContent = sellBtn();
+      $('#sell-save').disabled = readOnly() || sellMissing().length > 0; $('#sell-need').textContent = sellNeed();
       return;
     }
     const key = e.target.dataset.input;
@@ -1265,7 +1310,7 @@
       if (!v('name')) return (err.textContent = 'Give the product a name.');
       const nfs = S.role === 'owner' && !!(f.elements.notForSale && f.elements.notForSale.value === '1');
       if (!nfs && !(num(v('sellPrice')) > 0)) return (err.textContent = 'Enter a sell price above 0, or choose Not for sale.');
-      if (v('quantity') === '' || num(v('quantity')) < 0) return (err.textContent = 'Enter how many are on the shelf (0 or more).');
+      if (!(Math.floor(num(v('quantity'))) >= 1)) return (err.textContent = 'Enter how many you have (1 or more).');
       return write(() => backend().addProduct(S.shop, { name: v('name'), size: v('size'), costPrice: S.role === 'owner' ? v('costPrice') : '', sellPrice: v('sellPrice'), quantity: v('quantity'), notForSale: nfs, imageUrl: ($('#add-preview').dataset.img || ''), addedBy: S.role === 'owner' ? 'Owner' : (S.lastSeller || 'Staff') }),
         () => { toast('Product added'); go('stock'); }, '#add-err');
     }

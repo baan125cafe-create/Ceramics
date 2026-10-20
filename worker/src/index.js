@@ -165,7 +165,7 @@ async function login(env, shop, pin) {
     const mins = PAUSE_MINUTES[Math.min(st.level, PAUSE_MINUTES.length - 1)];
     await save(0, st.level + 1, now + mins * 60000).run();
     await email(env, SHOPS[shop] + ' app: sign-in paused after ' + MAX_TRIES + ' wrong PINs',
-      `<p>Someone entered a wrong PIN ${MAX_TRIES} times in a row, so sign-in to the ${SHOPS[shop]} app is paused for ${mins >= 60 ? mins / 60 + ' hour(s)' : mins + ' minutes'}.</p><p>Phones and computers that are already signed in keep working. If this wasn’t you or your staff, change the PINs and use “Sign all out” in Settings.</p>`, recipients(env));
+      `<p>Someone entered a wrong PIN ${MAX_TRIES} times in a row, so sign-in to the ${SHOPS[shop]} app is paused for ${mins >= 60 ? mins / 60 + ' hour(s)' : mins + ' minutes'}.</p><p>Phones and computers that are already signed in keep working. If this wasn’t you or your staff, change the PINs and use “Sign out” under Signed-in devices in Settings.</p>`, recipients(env));
     return { locked: mins };
   }
   await save(fails, st.level, 0).run();
@@ -287,7 +287,7 @@ async function addProduct(env, shop, d, role) {
   const cost = role !== 'owner' || d.costPrice === '' || d.costPrice == null ? 0 : Number(d.costPrice);
   if (nfs ? !(sell >= 0) : !(sell > 0)) fail('Enter a sell price above 0.');
   if (!(cost >= 0)) fail('Cost price must be 0 or more.');
-  if (!(qty >= 0)) fail('Enter how many are on the shelf (0 or more).');
+  if (!(qty >= 1)) fail('Enter how many you have (1 or more).');
   const p = { id: 'PRD-' + Date.now(), name, size: str(d.size, 40), costPrice: money(cost), sellPrice: money(sell), quantity: qty, imageUrl: str(d.imageUrl, 500), addedBy: str(d.addedBy, 40), createdAt: new Date().toISOString(), notForSale: nfs };
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
