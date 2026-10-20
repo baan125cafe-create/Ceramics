@@ -61,6 +61,8 @@
     list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    // Price tag: "Ready to sell" on not-for-sale items.
+    tag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
     out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>',
@@ -600,7 +602,7 @@
     return `
       <div class="page-head">
         <div><h1>Inventory</h1><div class="muted small">${plural(prods.length, 'product')} · ${inStock} in stock</div></div>
-        <button type="button" class="btn dark" data-go="add">${I.plus}New product</button>
+        <button type="button" class="btn dark" data-go="add">${I.plus}Product</button>
       </div>
       <div class="toolbar">
         <label class="search">${I.search}<span class="sr-only">Search products</span><input id="stock-q" type="search" placeholder="Search products" value="${esc(S.ui.stockQ)}" data-input="stockQ"></label>
@@ -631,8 +633,8 @@
           <span class="row-sub">${[priceText(p), 'cost ' + (p.costPrice > 0 ? money(p.costPrice) : '—'), margin].filter(Boolean).join(' · ')}</span>
           <span class="stockbar"><span class="track"><i class="fill-${st}" style="width:${Math.max(0, Math.min(100, p.quantity / maxQ * 100)).toFixed(0)}%"></i></span><b class="tone-${st}">${st === 'out' ? (notForSale(p) ? 'None left' : 'Sold out') : p.quantity + (notForSale(p) ? ' kept' : ' left')}</b></span>
         </button>
-        ${notForSale(p) ? `<button type="button" class="btn" data-onsale="${esc(p.id)}" aria-label="Put ${esc(label(p))} on sale">Ready to sell</button>`
-          : `<button type="button" class="btn" data-restock="${esc(p.id)}" aria-label="Add inventory for ${esc(label(p))}">+ Add</button>`}
+        ${notForSale(p) ? `<button type="button" class="icon-btn add-btn" data-onsale="${esc(p.id)}" aria-label="Ready to sell: put ${esc(label(p))} on sale" title="Ready to sell">${I.tag}</button>`
+          : `<button type="button" class="icon-btn add-btn" data-restock="${esc(p.id)}" aria-label="Add inventory for ${esc(label(p))}" title="Add inventory">${I.plus}</button>`}
       </li>`;
     }).join('') : `<li class="empty">${q ? 'No product matches that search.' : 'Nothing here.'}</li>`;
   }
