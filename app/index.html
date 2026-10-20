@@ -162,6 +162,35 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 .search input { flex: 1 1 auto; min-width: 0; border: 0; outline: none; background: transparent; font-size: 15px; }
 .search svg { width: 18px; height: 18px; color: var(--muted); flex: none; }
 .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+/* Search and filter as two equal bars (stacked on phones). */
+.toolbar.two { display: grid; grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 700px) { .toolbar.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Dropdown picker: looks like the app's fields; opens a card-style list under it. */
+.picker { position: relative; min-width: 0; }
+.picker-btn { width: 100%; min-height: 46px; display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 14px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); color: var(--ink); text-align: left; font-weight: 400; }
+.field .picker-btn { min-height: 52px; }
+.picker-btn > svg { width: 18px; height: 18px; flex: none; color: var(--muted); margin-left: auto; transition: transform 0.15s; }
+.picker.open .picker-btn { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.picker.open .picker-btn > svg { transform: rotate(180deg); }
+.picker-text { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; line-height: 1.25; }
+.picker-text b { font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.picker-text small { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.picker-placeholder { color: var(--muted); font-size: 15px; }
+.picker-meta { flex: none; font-size: 13px; font-weight: 600; color: var(--muted); }
+.picker-panel { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: 0 10px 30px rgba(34,22,13,0.18); overflow: hidden; }
+.picker-search { display: flex; align-items: center; gap: 8px; padding: 0 12px; min-height: 46px; border-bottom: 1px solid var(--line); }
+.picker-search svg { width: 17px; height: 17px; color: var(--muted); flex: none; }
+.picker-search input, .field .picker-search input { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0; border: 0; border-radius: 0; outline: none; background: transparent; font-size: 16px; }
+/* About 5 rows tall; the rest scroll inside the list. */
+.picker-list { list-style: none; margin: 0; padding: 4px; max-height: 292px; overflow-y: auto; overscroll-behavior: contain; }
+.picker-opt { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--ink); text-align: left; }
+.picker-opt:hover, .picker-opt:focus-visible { background: var(--surface-2); }
+li[aria-selected="true"] > .picker-opt { background: var(--accent-soft); }
+.picker-tick { width: 18px; flex: none; color: var(--accent); display: inline-flex; }
+.picker-tick svg { width: 18px; height: 18px; }
+.picker-empty { padding: 16px 12px; color: var(--muted); font-size: 14px; }
+.thumb.sm { width: 40px; height: 40px; border-radius: 9px; }
+.thumb.sm svg { width: 18px; height: 18px; }
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 600; }
 .field input, .field select, .field textarea { min-height: 48px; padding: 10px 14px; border-radius: var(--r-md); border: 1px solid var(--line); background: var(--surface); font-size: 16px; font-weight: 400; }
 .field textarea { resize: vertical; min-height: 72px; }
@@ -224,7 +253,7 @@ button.brand-switch:hover, button.brand-switch:focus-visible { background: var(-
 /* iPhone-style on/off switch */
 .switch { position: relative; width: 52px; height: 32px; border-radius: 999px; border: 0; padding: 0; background: var(--line); transition: background 0.2s; justify-self: center; }
 .switch i { position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3); transition: transform 0.2s; }
-.switch[aria-checked="true"] { background: var(--good); }
+.switch[aria-checked="true"] { background: var(--accent); }
 .switch[aria-checked="true"] i { transform: translateX(20px); }
 @media (prefers-reduced-motion: reduce) { .switch, .switch i { transition: none; } }
 td.when { white-space: nowrap; font-variant-numeric: tabular-nums; }
