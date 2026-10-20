@@ -169,7 +169,7 @@
     const t = themePref(), root = document.documentElement;
     if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
     const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', dark ? '#3A2D22' : '#FFFFFF'); if (t !== 'auto') m.removeAttribute('media'); });
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', dark ? '#3A2D22' : '#EDE1CF'); if (t !== 'auto') m.removeAttribute('media'); });
   }
   applyTheme();
 
