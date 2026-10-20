@@ -74,7 +74,7 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
 /* Demo strip */
-.demo-strip { background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 600; text-align: center; padding-block: calc(6px + env(safe-area-inset-top, 0px)) 6px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.demo-strip { background: var(--warn-bg); color: var(--warn); font-size: 12px; font-weight: 600; text-align: center; padding-block: 6px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 
 /* Sign-in */
 .signin { min-height: 100%; background: var(--brand-dark); color: var(--brand-dark-ink); display: flex; align-items: center; justify-content: center; padding-block: 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
@@ -109,9 +109,9 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 /* App shell */
 .shell { min-height: 100%; display: flex; flex-direction: column; }
 .sidebar { display: none; }
-/* Phone header: its own band (card colour + hairline) so it doesn't run into the page.
+/* Phone header: its own band (card colour + hairline) that stays at the top while scrolling.
    The top padding clears the iPhone status bar when the app is opened from the home screen. */
-.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: calc(12px + env(safe-area-inset-top, 0px)) 12px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 1px 8px rgba(0,0,0,0.06); margin-bottom: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.topbar { position: sticky; top: 0; z-index: 15; padding-block: calc(8px + env(safe-area-inset-top, 0px)) 8px; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 1px 8px rgba(0,0,0,0.06); margin-bottom: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 .brand { font-family: var(--font-display); font-size: 26px; line-height: 1.05; }
 .brand-sub { font-size: 12px; color: var(--muted); }
 .main { flex: 1 1 auto; width: 100%; max-width: 1240px; margin: 0 auto; padding-block: 4px 112px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 14px; }
@@ -223,7 +223,6 @@ button.brand-switch:hover, button.brand-switch:focus-visible { background: var(-
 .switch[aria-checked="true"] { background: var(--good); }
 .switch[aria-checked="true"] i { transform: translateX(20px); }
 @media (prefers-reduced-motion: reduce) { .switch, .switch i { transition: none; } }
-.pay-type small { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
 td.when { white-space: nowrap; font-variant-numeric: tabular-nums; }
 #mail-err:empty { display: none; }
 .pill.pay-custom { background: var(--surface-2); color: var(--ink); }
@@ -350,7 +349,16 @@ tfoot td { font-weight: 700; border-bottom: 0; }
 .set-row .icon-btn { margin-right: 4px; }
 .confirm-actions.one { grid-template-columns: 1fr; }
 .card p a { color: var(--accent); font-weight: 600; text-underline-offset: 2px; }
-.demo-strip + .shell .topbar { padding-top: 12px; }
+.topbar-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.brand-mini { display: flex; flex-direction: column; min-width: 0; }
+.topbar .brand { font-size: 22px; white-space: nowrap; }
+.topbar .brand .shop-logo { width: 22px; height: 22px; margin-right: 6px; }
+.topbar-actions { display: flex; align-items: center; flex: none; }
+.shop-pill { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 12px 0 9px; margin-right: 2px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); color: var(--accent); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.shop-pill .shop-logo { width: 15px; height: 15px; }
+/* On phones the data note sits inside the sticky header as one short line. */
+.topbar .demo-strip { margin: 8px calc(-1 * max(16px, env(safe-area-inset-right, 0px))) -8px calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-block: 4px; font-size: 11px; }
+@media (max-width: 899px) { #app > .demo-strip { display: none; } }
 @media (min-width: 700px) { .overlay { align-items: center; } .sheet { border-radius: 24px; max-height: 88%; } .sheet .grab { display: none; } }
 .stepper { display: flex; align-items: center; justify-content: center; gap: 22px; }
 .stepper button { width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-size: 24px; }

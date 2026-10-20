@@ -341,12 +341,28 @@
 
   // ---------- rendering ----------
   const app = $('#app');
-  function strip() {
-    if (!live()) return `<div class="demo-strip">Demo mode · sample data only · nothing here touches the real shop data</div>`;
-    if (Backends.live.local) return `<div class="demo-strip live">Local test · shop API on this computer · changes stay on this computer</div>`;
+  // Which data this is. Full text across the top on computers; a one-line version inside the phone header.
+  function strip(short) {
+    if (!live()) return `<div class="demo-strip">${short ? 'Sample data · nothing here touches the real shop' : 'Demo mode · sample data only · nothing here touches the real shop data'}</div>`;
+    if (Backends.live.local) return `<div class="demo-strip live">${short ? 'Local test copy on this computer' : 'Local test · shop API on this computer · changes stay on this computer'}</div>`;
     // Staff don't need the reminder; the owner sees it because she edits products and can add test items.
     if (S.role !== 'owner') return '';
-    return `<div class="demo-strip real">Live · changes save to the real ${esc(SHOPS[S.shop].name)} data · to try things out, put “test” in a product name</div>`;
+    return `<div class="demo-strip real">${short ? `Live · saves to the real ${esc(SHOPS[S.shop].name)} data` : `Live · changes save to the real ${esc(SHOPS[S.shop].name)} data · to try things out, put “test” in a product name`}</div>`;
+  }
+  // Phone header: shop name on the left; switch-shop, refresh and sign-out on the right. It stays at the top when scrolling.
+  function phoneHeader(shop, roleName) {
+    const multi = Object.keys(SHOPS).length > 1, o = multi ? SHOPS[otherShop()] : null;
+    return `<header class="topbar">
+            <div class="topbar-row">
+              <div class="brand-mini"><span class="brand">${logo(S.shop)}${esc(shop.name)}</span><span class="brand-sub">${roleName}</span></div>
+              <div class="topbar-actions">
+                ${multi ? `<button type="button" class="shop-pill" data-act="switch-shop" aria-label="Switch to ${esc(o.name)}" title="Switch to ${esc(o.name)}">${logo(otherShop(), 'tiny')}<span>${esc(o.name)}</span></button>` : ''}
+                <button type="button" class="icon-btn" data-act="refresh" aria-label="Refresh data" title="Refresh data">${I.refresh}</button>
+                <button type="button" class="icon-btn" data-act="signout" aria-label="Sign out" title="Sign out">${I.out}</button>
+              </div>
+            </div>
+            ${strip(true)}
+          </header>`;
   }
   function render() {
     setTabIcon(S.shop);
@@ -376,13 +392,7 @@
           </div>
         </aside>
         <div class="content">
-          <header class="topbar">
-            ${brandSwitch(shop, roleName)}
-            <div style="display:flex">
-              <button type="button" class="icon-btn" data-act="refresh" aria-label="Refresh data">${I.refresh}</button>
-              <button type="button" class="icon-btn" data-act="signout" aria-label="Sign out">${I.out}</button>
-            </div>
-          </header>
+          ${phoneHeader(shop, roleName)}
           <main class="main" id="view"></main>
         </div>
       </div>
@@ -401,9 +411,16 @@
       <span class="brand">${logo(S.shop)}${esc(shop.name)}</span><span class="brand-sub">${roleName} · ${esc(shop.sub)}</span>
       <span class="switch-hint">${I.swap}<span>Switch to</span><span class="switch-to">${logo(otherShop(), 'tiny')}${esc(o.name)}</span></span></button>`;
   }
+  // A fresh start for the other shop: searches, filters, half-filled forms and open sheets
+  // don't carry over. The dashboard and sales periods (today / 7 days / ...) are kept.
+  function resetForShop() {
+    closeSheet(); closeConfirm();
+    sell = restock = onSale = editing = null;
+    Object.assign(S.ui, { stockFilter: 'all', stockQ: '', staffTab: 'in', sellQ: '', salesPay: 'all', salesQ: '', reportTo: '', reportErr: '' });
+  }
   function switchShop() {
     const next = otherShop(), route = S.route;
-    closeSheet();
+    resetForShop();
     S.shop = next; sess.set('b125_shop', next); S._settings = null; S.pin = ''; S.pinErr = '';
     if (live()) {
       // Each shop has its own PINs: go straight in only if this phone has a pass for it.
@@ -855,12 +872,12 @@
         </section>
         <section class="card">
           <h2>Payment types</h2>
-          <p class="muted small" style="margin:0">Shown when recording a sale. Tap a name to rename it. Each sale keeps the type it was saved with, so renaming or switching one off never changes past sales.</p>
+          <p class="muted small" style="margin:0">Shown when recording a sale. Tap a name to rename it. Each sale keeps the type it was saved with, so renaming or switching one off never changes past sales; a switched-off type stays greyed out here so those sales still show its name.</p>
           <div class="pay-types">${payTypes().map((t, i) => `<div class="pay-type">
               <label class="sr-only" for="pt-${i}">Name of payment type ${i + 1}</label>
               <input id="pt-${i}" class="inline-input" data-ptname="${i}" value="${esc(t.label)}" maxlength="30" ${t.retired ? 'disabled' : ''}>
               <button type="button" class="switch" role="switch" aria-checked="${!t.retired}" data-ptoggle="${i}" aria-label="${esc(t.label)}: ${t.retired ? 'switched off' : 'switched on'}" title="${t.retired ? 'Switch on' : 'Switch off'}"><i></i></button>
-              ${t.retired ? '<small>Switched off · past sales still show this name</small>' : ''}</div>`).join('')}</div>
+</div>`).join('')}</div>
           <form id="pay-form" class="add-row" novalidate>
             <label class="field" for="pay-new">Add a type<input id="pay-new" class="inline-input" placeholder="e.g. Alipay" maxlength="30"></label>
             <button type="submit" class="icon-btn add-btn wide" aria-label="Add this payment type" title="Add">${I.plus}</button>
@@ -1097,6 +1114,7 @@
     if (d.confirm) { const fn = pendingConfirm; closeConfirm(); if (d.confirm === 'yes' && fn) fn(); return; }
     if (d.key) return pressKey(d.key);
     if (d.shop && !S.role) {
+      if (d.shop !== S.shop) resetForShop();
       S.shop = d.shop; S._settings = null; S.pin = ''; S.pinErr = '';
       const pass = live() && Backends.live.pass(d.shop);
       return pass ? enter(pass.role) : renderSignIn();
