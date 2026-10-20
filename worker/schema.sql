@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS products (
   addedBy     TEXT NOT NULL DEFAULT '',
   createdAt   TEXT NOT NULL DEFAULT '',
   archived    TEXT,                       -- when it was removed; NULL = on sale
+  notForSale  INTEGER NOT NULL DEFAULT 0, -- 1 = owner keeps it in inventory but it can't be sold
   PRIMARY KEY (shop, id)
 );
 
