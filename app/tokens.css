@@ -1,0 +1,60 @@
+/* Design tokens for the shop app: every colour, font, radius and shadow lives here.
+   styles.css only uses these variables. Light is the default; dark applies when the device
+   is dark (Appearance: Automatic) or when Appearance is set to Dark. */
+:root {
+  --bg: #F6F0E6; --surface: #FFFFFF; --surface-2: #F8F3EC; --line: #E6DACB;
+  --ink: #22160D; --muted: #6B5B4F; --accent: #A8532A; --accent-ink: #FFFFFF; --accent-soft: #F3E1D3;
+  --hero: #FFFFFF; --hero-ink: #22160D; --hero-muted: #6B5B4F; --hero-line: #EADFD2; --hero-edge: transparent; --seg-on: #FFFFFF;
+  --bar: #E2C3A8; --bar-hi: #A8532A; --delta-flat: #F2EADF;
+  --brand-dark: #22160D; --brand-dark-ink: #FBF6EE; --brand-dark-muted: #D9C6B2; --pin-on: #F0A46B;
+  --good: #2F6B45; --good-bg: #E5F1E8; --warn: #8A4B00; --warn-bg: #FDF3E4; --bad: #9B2F1F; --bad-bg: #FBEDEA;
+  --cash: #C2662D; --card: #2E5E8C; --qr: #2F7A6B; --legacy: #A99887;
+  --scrim: rgba(34, 22, 13, 0.45); --shadow: 0 1px 2px rgba(34,22,13,0.06), 0 6px 20px rgba(34,22,13,0.06);
+  --font-display: 'DM Serif Display', Georgia, 'Times New Roman', serif;
+  --font-body: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --r-lg: 18px; --r-md: 14px; --r-sm: 10px;
+  /* Header, sidebar and bottom bar. In dark mode a lighter brown than the cards so they stand apart. */
+  --chrome: #EDE1CF; --chrome-line: #DBC9B2; --chrome-on: #E2CCB4;
+  /* Shadows */
+  --shadow-bar: 0 1px 8px rgba(0,0,0,0.06); --shadow-fab: 0 6px 16px rgba(168,83,42,0.35);
+  --shadow-pop: 0 10px 30px rgba(34,22,13,0.18); --shadow-knob: 0 1px 3px rgba(0,0,0,0.3);
+  /* Revenue change pill (same in both themes) */
+  --delta-up-bg: #CFE8D6; --delta-up: #1F5233; --delta-down-bg: #F6D5CD; --delta-down: #7E2414;
+  /* Stock bar, switch knob */
+  --fill-low: #D98A2B; --knob: #FFFFFF;
+  /* On product photos and colour placeholders (same in both themes) */
+  --on-photo: rgba(255,255,255,0.9);
+  --badge-bg: rgba(255,255,255,0.92); --badge-ink: #22160D;
+  --badge-low-bg: #FDF3E4; --badge-low: #8A4B00; --badge-out-bg: #FBEDEA; --badge-out: #9B2F1F;
+  --badge-nfs-bg: #EDE6DC; --badge-nfs: #4A3B2E;
+  /* Placeholder colours for products without a photo (picked from the name) */
+  --swatch-0: #B9825E; --swatch-1: #5E8A8C; --swatch-2: #A35F43; --swatch-3: #8E6B8F; --swatch-4: #7A6A55;
+  --swatch-5: #6C6862; --swatch-6: #86956A; --swatch-7: #C48A6A; --swatch-8: #4F6D7A; --swatch-9: #9C7A4B;
+  /* Sign-in screen (always on the dark brand background) */
+  --on-dark-fill: rgba(255,255,255,0.08); --on-dark-line: rgba(255,255,255,0.25);
+  --on-dark-outline: rgba(251,246,238,0.55); --on-dark-hover: rgba(251,246,238,0.1); --pin-glow: rgba(240,164,107,0.14);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #17110C; --surface: #221A13; --surface-2: #2A2119; --line: #3B2F25;
+  --chrome: #3A2D22; --chrome-line: #4D3C2E; --chrome-on: #4D3A2A;
+  --ink: #F3EADF; --muted: #B9A898; --accent: #E5915E; --accent-ink: #1A0F08; --accent-soft: #3A2618;
+  --hero: #32251A; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A; --hero-edge: #5A4432; --seg-on: #4A3A2C;
+  --bar: #A88466; --bar-hi: #F0A46B; --delta-flat: rgba(255,255,255,0.12);
+  --good: #82C89D; --good-bg: #1D3226; --warn: #F0B45E; --warn-bg: #3A2A12; --bad: #F2907E; --bad-bg: #3B1E19;
+  --cash: #E5915E; --card: #7FAAD8; --qr: #6CC3AE; --legacy: #7C6C5E;
+  --scrim: rgba(0, 0, 0, 0.6); --shadow: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-pop: 0 10px 30px rgba(0,0,0,0.5); --shadow-bar: 0 1px 8px rgba(0,0,0,0.25);
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #17110C; --surface: #221A13; --surface-2: #2A2119; --line: #3B2F25;
+  --chrome: #3A2D22; --chrome-line: #4D3C2E; --chrome-on: #4D3A2A;
+  --ink: #F3EADF; --muted: #B9A898; --accent: #E5915E; --accent-ink: #1A0F08; --accent-soft: #3A2618;
+  --hero: #32251A; --hero-ink: #FBF6EE; --hero-muted: #CDB9A4; --hero-line: #4D3A2A; --hero-edge: #5A4432; --seg-on: #4A3A2C;
+  --bar: #A88466; --bar-hi: #F0A46B; --delta-flat: rgba(255,255,255,0.12);
+  --good: #82C89D; --good-bg: #1D3226; --warn: #F0B45E; --warn-bg: #3A2A12; --bad: #F2907E; --bad-bg: #3B1E19;
+  --cash: #E5915E; --card: #7FAAD8; --qr: #6CC3AE; --legacy: #7C6C5E;
+  --scrim: rgba(0, 0, 0, 0.6); --shadow: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-pop: 0 10px 30px rgba(0,0,0,0.5); --shadow-bar: 0 1px 8px rgba(0,0,0,0.25);
+  color-scheme: dark;
+}

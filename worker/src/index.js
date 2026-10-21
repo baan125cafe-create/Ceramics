@@ -19,6 +19,7 @@
 //
 // Secrets (set with `npm run set-pin`, or `wrangler secret put`; never in this repo):
 //   BAAN_OWNER_PIN_HASH, BAAN_STAFF_PIN_HASH, CHUD_OWNER_PIN_HASH, CHUD_STAFF_PIN_HASH
+//   PIN_CONTACT (optional): email shown to the owner in Settings for PIN changes
 // Optional, for emails: RESEND_API_KEY, REPORT_TO (comma-separated), REPORT_FROM
 
 const VERSION = 7;
@@ -210,7 +211,9 @@ async function getAll(env, shop, role) {
   ]);
   const products = p.results.map(r => { const o = Object.assign({}, r); delete o.shop; if (o.archived == null) o.archived = ''; if (role !== 'owner') delete o.costPrice; return o; });
   const sales = s.results.map(r => { const o = Object.assign({}, r); delete o.shop; if (o.costPrice == null) o.costPrice = ''; return o; });
-  return { version: VERSION, role, products, sales, settings };
+  // Who to email for a PIN change: a Cloudflare secret, so no personal address is in the public repo. Owner only.
+  const contact = role === 'owner' ? String(env.PIN_CONTACT || '').trim() : '';
+  return { version: VERSION, role, products, sales, settings, contact };
 }
 
 const getProduct = (env, shop, id) => env.DB.prepare('SELECT * FROM products WHERE shop = ? AND id = ?').bind(shop, String(id || '')).first();
