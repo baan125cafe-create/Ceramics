@@ -224,13 +224,18 @@
   const allowed = r => ROUTES[S.role].some(x => x[0] === r);
 
   // ---------- loading ----------
+  // Bumped on every sign-in and sign-out, so an answer that arrives after signing out is ignored
+  // (it can't sign the device back in or show the old shop's data).
+  let session = 0;
   async function loadData(force) {
-    const key = S.mode + ':' + S.shop;
+    const key = S.mode + ':' + S.shop, gen = session;
     if (S.cache[key] && !force) return;
     S.loading = true; S.loadError = '';
     if (S.role) render();
     try {
-      S.cache[key] = await backend().load(S.shop);
+      const d = await backend().load(S.shop);
+      if (gen !== session) return;
+      S.cache[key] = d;
       S.loadedAt[key] = Date.now();
       S._settings = null;
       // Live: the role comes from the server's check of this phone's pass, never
@@ -238,6 +243,7 @@
       const r = S.cache[key].role;
       if (live() && r && r !== S.role) { S.role = r; sess.set('b125_role', r); S.route = null; }
     } catch (e) {
+      if (gen !== session) return;
       if (e.code === 'auth') { S.loading = false; S.pinErr = e.message; return signOut(); }
       S.loadError = e.message || 'Couldn’t load the data.';
     }
@@ -256,9 +262,15 @@
     if (Date.now() - (S.loadedAt[S.mode + ':' + S.shop] || 0) < 60000) return;
     loadData(true);
   }
-  setInterval(quietRefresh, 120000);
-  document.addEventListener('visibilitychange', quietRefresh);
+  // The 2-minute timer only runs while someone is signed in to live data and the app is on screen.
+  // It's stopped on sign-out, when the app goes to the background or is closed, and restarted on return.
+  let refreshTimer = null;
+  function stopAutoRefresh() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } }
+  function startAutoRefresh() { stopAutoRefresh(); if (S.role && live() && !document.hidden) refreshTimer = setInterval(quietRefresh, 120000); }
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopAutoRefresh(); else { startAutoRefresh(); quietRefresh(); } });
   window.addEventListener('focus', quietRefresh);
+  window.addEventListener('pagehide', stopAutoRefresh);
+  window.addEventListener('pageshow', e => { if (e.persisted) { startAutoRefresh(); quietRefresh(); } });
 
   const updatedLabel = () => {
     const t = S.loadedAt[S.mode + ':' + S.shop];
@@ -474,7 +486,7 @@
     if (live()) {
       // Each shop has its own PINs: go straight in only if this phone has a pass for it.
       const pass = Backends.live.pass(next);
-      if (!pass) { S.role = null; sess.del('b125_role'); return render(); }
+      if (!pass) { session++; stopAutoRefresh(); S.role = null; sess.del('b125_role'); return render(); }
       enter(pass.role);
     } else enter(S.role);
     if (allowed(route)) { S.route = route; render(); }
@@ -543,7 +555,8 @@
   }
   function enter(role) {
     S.role = role; sess.set('b125_role', role); sess.set('b125_shop', S.shop); sess.set('b125_mode', S.mode);
-    S.route = null;
+    S.route = null; session++;
+    startAutoRefresh();
     // Each role gets its own view of the data (staff never receive costs), so always reload.
     delete S.cache[S.mode + ':' + S.shop];
     loadData(true);
@@ -1157,7 +1170,12 @@
     render();
     window.scrollTo(0, 0);
   }
-  function signOut() { if (live()) { Backends.live.dropPass(S.shop); delete S.cache['live:' + S.shop]; } S.role = null; sess.del('b125_role'); closeSheet(); render(); }
+  // Signing out also stops the refresh timer, closes anything open and clears searches and forms.
+  function signOut() {
+    if (live()) { Backends.live.dropPass(S.shop); delete S.cache['live:' + S.shop]; }
+    session++; stopAutoRefresh(); resetForShop();
+    S.role = null; sess.del('b125_role'); render();
+  }
   const noteNow = () => { const n = $('#sell-note'); if (n && sell) sell.note = n.value; };
 
   document.addEventListener('click', e => {
@@ -1421,6 +1439,6 @@
     S.role = pass ? pass.role : null;
     if (pass) sess.set('b125_role', pass.role); else sess.del('b125_role');
   }
-  if (S.role) loadData(false);
+  if (S.role) { loadData(false); startAutoRefresh(); }
   render();
 })();
