@@ -44,8 +44,8 @@
   const saleHour = s => { const t = new Date(s.createdAt || s.saleDate); return isNaN(t) ? 12 : bkkHour(t); };
   // "nok", "Nok " and "NOK" are one person.
   const cleanName = n => { n = String(n || '').trim().replace(/\s+/g, ' '); return n ? n[0].toUpperCase() + n.slice(1).toLowerCase() : 'Unknown'; };
-  const SWATCHES = ['#B9825E', '#5E8A8C', '#A35F43', '#8E6B8F', '#7A6A55', '#6C6862', '#86956A', '#C48A6A', '#4F6D7A', '#9C7A4B'];
-  const swatch = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return SWATCHES[h % SWATCHES.length]; };
+  // Placeholder colour for a product without a photo: one of the --swatch-0…9 tokens, picked from its name.
+  const swatch = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return `var(--swatch-${h % 10})`; };
   // Drive photos: ask Google for a small thumbnail instead of the full original.
   const imgSrc = (url, w) => { const m = String(url || '').match(/(?:[?&]id=|\/d\/)([A-Za-z0-9_-]{20,})/); return m ? `https://lh3.googleusercontent.com/d/${m[1]}=w${w || 300}` : String(url || ''); };
   const sess = {
@@ -154,8 +154,8 @@
     const s = $('[data-pick-q]', w); if (s && matchMedia('(pointer: fine)').matches) s.focus({ preventScroll: true });
   }
 
-  // Who to ask for a PIN change (PINs are set on Cloudflare, not in the app).
-  const PIN_CONTACT = 'paul.leejw@gmail.com';
+  // Who to ask for a PIN change comes from the server (a Cloudflare secret, owner only), never from this public code.
+  const pinContact = () => String(data().contact || '');
   const actBtn = (icon, labelText, attrs, tone) => `<button type="button" class="icon-btn add-btn${tone ? ' ' + tone : ''}" aria-label="${esc(labelText)}" title="${esc(labelText)}" ${attrs}>${I[icon]}</button>`;
   const sellable = p => p.quantity > 0 && !notForSale(p);
 
@@ -212,8 +212,7 @@
   function applyTheme() {
     const t = themePref(), root = document.documentElement;
     if (t === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', t);
-    const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', dark ? '#3A2D22' : '#EDE1CF'); if (t !== 'auto') m.removeAttribute('media'); });
+    document.querySelectorAll('meta[name="theme-color"]').forEach(m => { m.setAttribute('content', getComputedStyle(root).getPropertyValue('--chrome').trim()); if (t !== 'auto') m.removeAttribute('media'); });
   }
   applyTheme();
 
@@ -498,7 +497,7 @@
     if (!v) return;
     if (S.loading && !S.cache[S.mode + ':' + S.shop]) { v.innerHTML = `<div class="state"><div class="spinner" aria-hidden="true"></div><p>Loading ${esc(SHOPS[S.shop].name)} data…</p></div>`; return; }
     if (S.loadError && !S.cache[S.mode + ':' + S.shop]) {
-      v.innerHTML = `<div class="state"><h2 class="display">Couldn’t load the data</h2><p class="muted">${esc(S.loadError)}</p><div class="toolbar" style="justify-content:center"><button type="button" class="btn primary" data-act="refresh">Try again</button><button type="button" class="btn" data-act="signout-now">Back to sign-in</button></div></div>`;
+      v.innerHTML = `<div class="state"><h2 class="display">Couldn’t load the data</h2><p class="muted">${esc(S.loadError)}</p><div class="toolbar justify-center"><button type="button" class="btn primary" data-act="refresh">Try again</button><button type="button" class="btn" data-act="signout-now">Back to sign-in</button></div></div>`;
       return;
     }
     const fn = { dashboard: viewDashboard, stock: S.role === 'owner' ? viewOwnerStock : viewStaffStock, add: viewAdd, sales: viewSales, settings: viewSettings, sell: viewSell }[S.route];
@@ -519,15 +518,15 @@
       </div>`;
     let body;
     if (S.mode === 'live' && !L6.configured()) {
-      body = `<div class="connect"><p class="signin-hint" style="max-width:none">The live shop data isn’t connected yet. Until it is, try everything with Sample data.</p></div>`;
+      body = `<div class="connect"><p class="signin-hint mw-none">The live shop data isn’t connected yet. Until it is, try everything with Sample data.</p></div>`;
     } else if (S.mode === 'live' && !L6.info[S.shop]) {
-      body = `<div class="connect"><p class="signin-hint" style="max-width:none">Connecting…</p></div>`;
+      body = `<div class="connect"><p class="signin-hint mw-none">Connecting…</p></div>`;
       L6.detect(S.shop).then(() => { if (!S.role) renderSignIn(); }, e => { L6.info[S.shop] = { error: e.message }; if (!S.role) renderSignIn(); });
     } else if (S.mode === 'live' && L6.info[S.shop].error) {
       body = `<div class="connect"><div class="pin-err" role="alert">${esc(L6.info[S.shop].error)}</div>
           <button type="button" class="btn block" data-act="retry-detect">Try again</button></div>`;
     } else if (S.mode === 'live' && !L6.info[S.shop].pinsSet) {
-      body = `<div class="connect"><p class="signin-hint" style="max-width:none">No PINs are set for ${esc(SHOPS[S.shop].name)} yet. They’re set from a computer with <b>npm run set-pin</b> (see worker/README.md).</p>
+      body = `<div class="connect"><p class="signin-hint mw-none">No PINs are set for ${esc(SHOPS[S.shop].name)} yet. They’re set from a computer with <b>npm run set-pin</b> (see worker/README.md).</p>
           <button type="button" class="btn block" data-act="retry-detect">They’re set now</button></div>`;
     } else {
       const isLive = S.mode === 'live';
@@ -644,7 +643,7 @@
 
         <section class="card w4">
           <div class="card-head"><h2>Best sellers</h2><button type="button" class="link-btn" data-go="sales">All sales</button></div>
-          ${st.top.length ? st.top.map(t => `<div class="rank"><div class="rank-row"><span>${esc(t.name)}</span><span class="muted">${t.units} sold · <b style="color:var(--ink)">${money(t.rev)}</b></span></div><div class="rank-bar"><i style="width:${(t.rev / topMax * 100).toFixed(1)}%"></i></div></div>`).join('') : '<p class="muted">No sales in this period yet.</p>'}
+          ${st.top.length ? st.top.map(t => `<div class="rank"><div class="rank-row"><span>${esc(t.name)}</span><span class="muted">${t.units} sold · <b class="text-ink">${money(t.rev)}</b></span></div><div class="rank-bar"><i style="width:${(t.rev / topMax * 100).toFixed(1)}%"></i></div></div>`).join('') : '<p class="muted">No sales in this period yet.</p>'}
         </section>
 
         <section class="card w4">
@@ -665,7 +664,7 @@
 
         <section class="card w4">
           <h2>By staff</h2>
-          ${st.staff.length ? st.staff.map(s => `<div class="staff-row"><span style="display:flex;align-items:center;min-width:0"><span class="avatar">${esc(s.name[0])}</span>${esc(s.name)}</span><span class="muted">${s.n} sales · <b style="color:var(--ink)">${money(s.rev)}</b></span></div>`).join('') : '<p class="muted">No sales in this period yet.</p>'}
+          ${st.staff.length ? st.staff.map(s => `<div class="staff-row"><span style="display:flex;align-items:center;min-width:0"><span class="avatar">${esc(s.name[0])}</span>${esc(s.name)}</span><span class="muted">${s.n} sales · <b class="text-ink">${money(s.rev)}</b></span></div>`).join('') : '<p class="muted">No sales in this period yet.</p>'}
         </section>
       </div>`;
   }
@@ -806,9 +805,9 @@
         ${nfsCheck('add', false)}` : `<label class="field" for="add-sell">Sell price (฿)<input id="add-sell" name="sellPrice" type="number" min="0" inputmode="decimal" placeholder="450" required><span class="hint">The owner adds the cost price. Once saved, only the owner can change it.</span></label>`}
         <label class="field" for="add-qty">Quantity<input id="add-qty" name="quantity" type="number" min="1" inputmode="numeric" placeholder="10" required></label>
         <div class="muted small" id="add-margin" aria-live="polite"></div>
-        <div class="pin-err" id="add-err" role="alert" style="color:var(--bad)"></div>
+        <div class="pin-err text-bad" id="add-err" role="alert"></div>
         <button type="submit" class="btn primary block" id="add-save" disabled>${readOnly() ? 'Saving is off in this preview' : 'Add product'}</button>
-        <p class="muted small" id="add-need" style="margin:0;text-align:center">${readOnly() ? '' : 'Still needed: product name · sell price · quantity of 1 or more'}</p>
+        <p class="muted small m0 text-center" id="add-need">${readOnly() ? '' : 'Still needed: product name · sell price · quantity of 1 or more'}</p>
       </form>`;
   }
   // Add product: the button stays off until there's a name, a price (unless not for sale) and at least 1 piece.
@@ -895,15 +894,15 @@
         <div class="settings-col">
         <section class="card">
           <h2>Access</h2>
-          <p class="muted small" style="margin:0">The owner PIN opens everything; the staff PIN opens inventory, add product and sell. PINs are kept on Cloudflare and never pass through this app. To change one, email Paul at <a href="mailto:${PIN_CONTACT}?subject=${encodeURIComponent('Change a PIN for ' + SHOPS[S.shop].name)}">${PIN_CONTACT}</a>.</p>
+          <p class="muted small m0">The owner PIN opens everything; the staff PIN opens inventory, add product and sell. PINs are kept on Cloudflare and never pass through this app. ${pinContact() ? `To change one, email <a href="mailto:${esc(pinContact())}?subject=${encodeURIComponent('Change a PIN for ' + SHOPS[S.shop].name)}">${esc(pinContact())}</a>.` : 'To change one, ask whoever manages the shop’s PINs.'}</p>
           <div>
             <div class="set-row"><div><b>Signed-in devices</b><small>Sign out every phone and computer, for example after a staff change</small></div>${actBtn('out', 'Sign out every device', 'data-act="signout-all"', 'danger')}</div>
           </div>
         </section>
         <section class="card tool">
           <h2>Data check</h2>
-          <p class="muted small" style="margin:0">How the ${plural(chk.nSales, 'sale')} and ${plural(chk.nProducts, 'product')} ${live() ? 'in the shop data' : 'in this sample'} line up with the payment types. Nothing here changes data.</p>
-          <p class="muted small" style="margin:0">${live() ? `${Backends.live.local ? 'Local test copy on this computer' : 'Stored on Cloudflare'} · <span style="word-break:break-all">${esc(Backends.live.api)}</span>` : 'Sample data in this browser only'}</p>
+          <p class="muted small m0">How the ${plural(chk.nSales, 'sale')} and ${plural(chk.nProducts, 'product')} ${live() ? 'in the shop data' : 'in this sample'} line up with the payment types. Nothing here changes data.</p>
+          <p class="muted small m0">${live() ? `${Backends.live.local ? 'Local test copy on this computer' : 'Stored on Cloudflare'} · <span class="break-all">${esc(Backends.live.api)}</span>` : 'Sample data in this browser only'}</p>
           <div class="table-wrap" style="background:var(--surface-2)"><table>
             <thead><tr><th>Saved as</th><th>Shown as</th><th class="num">Sales</th><th class="num">Total</th></tr></thead>
             <tbody>${chk.pays.map(x => `<tr><td>${esc(x.raw)}</td><td><span class="pill pay-${x.info.kind}">${esc(x.info.kind === 'other' ? 'Other (' + x.raw + ')' : x.info.label)}</span></td><td class="num">${x.n.toLocaleString('en-US')}</td><td class="num">${money(x.total)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales yet.</td></tr>'}</tbody>
@@ -923,17 +922,17 @@
         </section>
         <section class="card">
           <h2>Email reports</h2>
-          <p class="muted small" style="margin:0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time, to the address set up on Cloudflare. Send one now to check they arrive.</p>
-          <div class="pin-err" id="mail-err" role="alert" style="color:var(--bad);text-align:left">${esc(S.ui.reportErr || '')}</div>
+          <p class="muted small m0">Sent automatically every day at 23:30 (days with sales) and on the 1st of each month at 10:30, Phuket time, to the address set up on Cloudflare. Send one now to check they arrive.</p>
+          <div class="pin-err text-bad text-left" id="mail-err" role="alert">${esc(S.ui.reportErr || '')}</div>
           <div class="set-row"><div><b>Today so far</b><small>The daily report for ${esc(dayLabel(today()))}</small></div>${actBtn('send', 'Send today’s report now', `data-report="daily" ${live() ? '' : 'disabled'}`)}</div>
           <div class="set-row"><div><b>Last month</b><small>The monthly report</small></div>${actBtn('send', 'Send last month’s report now', `data-report="monthly" ${live() ? '' : 'disabled'}`)}</div>
-          ${live() ? '' : '<p class="muted small" style="margin:0">Emails are only sent from live data.</p>'}
+          ${live() ? '' : '<p class="muted small m0">Emails are only sent from live data.</p>'}
         </section>
         </div>
         <div class="settings-col">
         <section class="card">
           <h2>Staff names</h2>
-          <p class="muted small" style="margin:0">Staff tap their name when they sell, so reports don’t split one person into "Nok" and "nok". ${live() ? 'Saved with the shop data, so every phone gets the same list.' : 'Saved on this device for now.'}</p>
+          <p class="muted small m0">Staff tap their name when they sell, so reports don’t split one person into "Nok" and "nok". ${live() ? 'Saved with the shop data, so every phone gets the same list.' : 'Saved on this device for now.'}</p>
           <div class="chips">${names.length ? names.map((n, i) => `<span class="name-chip">${esc(n)}<button type="button" data-rmstaff="${i}" aria-label="Remove ${esc(n)}">${I.close}</button></span>`).join('') : '<span class="muted small">No names yet.</span>'}</div>
           <form id="staff-form" class="add-row" novalidate>
             <label class="field" for="staff-new">Add a name<input id="staff-new" placeholder="e.g. Ploy" maxlength="30"></label>
@@ -942,7 +941,7 @@
         </section>
         <section class="card">
           <h2>Payment types</h2>
-          <p class="muted small" style="margin:0">Shown when recording a sale. Tap a name to rename it. Each sale keeps the type it was saved with, so renaming or switching one off never changes past sales; a switched-off type stays greyed out here so those sales still show its name.</p>
+          <p class="muted small m0">Shown when recording a sale. Tap a name to rename it. Each sale keeps the type it was saved with, so renaming or switching one off never changes past sales; a switched-off type stays greyed out here so those sales still show its name.</p>
           <div class="pay-types">${payTypes().map((t, i) => `<div class="pay-type">
               <label class="sr-only" for="pt-${i}">Name of payment type ${i + 1}</label>
               <input id="pt-${i}" class="inline-input" data-ptname="${i}" value="${esc(t.label)}" maxlength="30" ${t.retired ? 'disabled' : ''}>
@@ -955,7 +954,7 @@
         </section>
         <section class="card">
           <h2>Appearance</h2>
-          <p class="muted small" style="margin:0">Automatic follows this phone or computer’s light or dark setting. Saved on this device only.</p>
+          <p class="muted small m0">Automatic follows this phone or computer’s light or dark setting. Saved on this device only.</p>
           <div class="seg" role="group" aria-label="Appearance">${[['auto', 'Automatic'], ['light', 'Light'], ['dark', 'Dark']].map(([k, t]) => `<button type="button" data-theme-pick="${k}" aria-pressed="${themePref() === k}">${t}</button>`).join('')}</div>
         </section>
         </div>
@@ -965,7 +964,7 @@
   function testCard() {
     const tp = data().products.filter(isTestProduct), ts = data().sales.filter(isTestSale);
     const names = tp.map(p => label(p)).slice(0, 6);
-    return `<p class="muted small" style="margin:0">To try things out, add a product with <b>test</b> in its name (any case, like “Test mug”) and sell it. Test rows are left out of every total and report.</p>
+    return `<p class="muted small m0">To try things out, add a product with <b>test</b> in its name (any case, like “Test mug”) and sell it. Test rows are left out of every total and report.</p>
       <div class="set-row"><div><b>${plural(tp.length, 'test product')} · ${plural(ts.length, 'test sale')}</b><small>${names.length ? esc(names.join(', ')) + (tp.length > names.length ? '…' : '') : 'Nothing to clear.'}</small></div>
       ${actBtn('trash', 'Clear test data', `data-act="clear-tests" ${!tp.length && !ts.length || readOnly() || (live() && S.role !== 'owner') ? 'disabled' : ''}`, 'danger')}</div>
       ${live() ? '' : `<div class="set-row"><div><b>Reset sample data</b><small>Undo test sales and restocks in this demo</small></div>${actBtn('undo', 'Reset sample data', 'data-act="reset"')}</div>`}`;
@@ -1052,16 +1051,16 @@
         })}
       </div>
       ${noPrice ? `<label class="field" for="sell-price">Price per piece (฿)<input id="sell-price" type="number" min="1" inputmode="decimal" value="${esc(sell.price)}" placeholder="This item has no price yet" required><span class="hint">Used for this sale only. The owner sets the product’s price.</span></label>` : ''}
-      <div class="panel"><div class="sum-row" style="align-items:center"><span style="font-weight:600">Quantity</span>
-        <div class="stepper" style="gap:14px"><button type="button" data-qty="-1" aria-label="One fewer" style="width:44px;height:44px">−</button><output style="font-size:30px;min-width:40px" aria-live="polite">${sell.qty}</output><button type="button" class="plus" data-qty="1" aria-label="One more" style="width:44px;height:44px" ${!p || sell.qty >= max ? 'disabled' : ''}>+</button></div></div></div>
+      <div class="panel"><div class="sum-row items-center"><span class="fw-600">Quantity</span>
+        <div class="stepper gap-14"><button type="button" data-qty="-1" aria-label="One fewer" style="width:44px;height:44px">−</button><output style="font-size:30px;min-width:40px" aria-live="polite">${sell.qty}</output><button type="button" class="plus" data-qty="1" aria-label="One more" style="width:44px;height:44px" ${!p || sell.qty >= max ? 'disabled' : ''}>+</button></div></div></div>
       <div class="field">Paid by<div class="seg" role="group" aria-label="Payment">${activePays().map(x => `<button type="button" data-paywith="${esc(x.id)}" aria-pressed="${sell.pay === x.id}">${esc(x.label)}</button>`).join('')}</div></div>
       <div class="field">Sold by<div class="chips" role="group" aria-label="Staff">${staffNames().map(n => `<button type="button" class="chip" data-who="${esc(n)}" aria-pressed="${sell.who === n}">${esc(n)}</button>`).join('') || '<span class="muted small">Add staff names in Settings.</span>'}</div></div>
       <label class="field" for="sell-note">Note (optional)<textarea id="sell-note" rows="2" maxlength="300" placeholder="Discount, gift wrap, customer request">${esc(sell.note)}</textarea></label>
-      <div class="pin-err" id="sell-err" role="alert" style="color:var(--bad)"></div>
+      <div class="pin-err text-bad" id="sell-err" role="alert"></div>
       <div class="sum-row" id="sell-sum">${sellSum()}</div>
       ${previewNote()}
       <button type="button" class="btn primary block" id="sell-save" data-act="save-sale" ${readOnly() || sellMissing().length ? 'disabled' : ''}>${sellBtn()}</button>
-      <p class="muted small" id="sell-need" style="margin:0;text-align:center">${sellNeed()}</p>`, 'Record a sale');
+      <p class="muted small m0 text-center" id="sell-need">${sellNeed()}</p>`, 'Record a sale');
   }
   // Price per piece for the sale: the product's price, or the one typed in if it has none.
   const sellEach = () => { const p = shown().find(x => x.id === sell.productId); return !p ? 0 : p.sellPrice > 0 ? p.sellPrice : num(sell.price); };
@@ -1096,17 +1095,17 @@
     const p = shown().find(x => x.id === restock.id);
     openSheet(`
       ${sheetHead(label(p), `${p.quantity} on the shelf · sells for ${money(p.sellPrice)}`, p)}
-      <div class="panel" style="align-items:center">
+      <div class="panel items-center">
         <div class="muted">How many new pieces arrived?</div>
         <div class="stepper"><button type="button" data-add="-1" aria-label="One fewer">−</button><output aria-live="polite">${restock.add}</output><button type="button" class="plus" data-add="1" aria-label="One more">+</button></div>
         <div class="chips">${[5, 10, 15, 20].map(n => `<button type="button" class="chip" data-addset="${n}" aria-pressed="${restock.add === n}">+${n}</button>`).join('')}</div>
         <div>Shelf after saving: <b>${p.quantity + restock.add}</b></div>
       </div>
       <label class="field" for="restock-cost">Cost per piece for this batch (฿)<input id="restock-cost" type="number" min="0" inputmode="decimal" value="${esc(restock.cost)}" placeholder="Cost price"><span class="hint">Saved with each sale from now on, so profit stays right if the price changes later.</span></label>
-      <div class="pin-err" id="restock-err" role="alert" style="color:var(--bad)"></div>
+      <div class="pin-err text-bad" id="restock-err" role="alert"></div>
       ${previewNote()}
       <button type="button" class="btn primary block" data-act="save-restock" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off in this preview' : `Add ${restock.add} to inventory`}</button>
-      <p class="muted small" style="margin:0;text-align:center">This adds to the current count. It never overwrites it, so a sale made at the same moment isn’t lost.</p>`, 'Add inventory');
+      <p class="muted small m0 text-center">This adds to the current count. It never overwrites it, so a sale made at the same moment isn’t lost.</p>`, 'Add inventory');
   }
   function saveRestock() {
     write(() => backend().addStock(S.shop, { productId: restock.id, add: restock.add, costPrice: $('#restock-cost').value }),
@@ -1121,9 +1120,9 @@
     onSale = { id };
     openSheet(`
       ${sheetHead('Ready to sell', esc(label(p)) + ` · ${p.quantity} in inventory`, p)}
-      <p class="muted" style="margin:0">Staff will see it in Sell and can sell it straight away.</p>
+      <p class="muted m0">Staff will see it in Sell and can sell it straight away.</p>
       <label class="field" for="onsale-price">Sell price (฿)<input id="onsale-price" type="number" min="1" inputmode="decimal" value="${p.sellPrice > 0 ? p.sellPrice : ''}" placeholder="Required"></label>
-      <div class="pin-err" id="onsale-err" role="alert" style="color:var(--bad)"></div>
+      <div class="pin-err text-bad" id="onsale-err" role="alert"></div>
       ${previewNote()}
       <button type="button" class="btn primary block" data-act="save-onsale" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off in this preview' : 'Put on sale'}</button>`, 'Ready to sell');
   }
@@ -1150,7 +1149,7 @@
         </div>
         ${nfsCheck('edit', notForSale(p))}
         <label class="field" for="edit-qty">Quantity on the shelf<input id="edit-qty" name="quantity" type="number" min="0" value="${p.quantity}"><span class="hint">Use this to correct a count after a stock-take. For new deliveries, use + Add.</span></label>
-        <div class="pin-err" id="edit-err" role="alert" style="color:var(--bad)"></div>
+        <div class="pin-err text-bad" id="edit-err" role="alert"></div>
         ${previewNote()}
         <button type="submit" class="btn primary block" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off in this preview' : 'Save changes'}</button>
         <button type="button" class="btn danger" data-act="delete-product" ${readOnly() ? 'disabled' : ''}>Remove product…</button>

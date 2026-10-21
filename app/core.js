@@ -195,7 +195,7 @@
       const r = await this.call(shop, 'getAll');
       const d = normalize(r);
       d.products.forEach(p => { p.imageUrl = photoUrl(p.imageUrl); });
-      return Object.assign(d, { settings: r.settings || null, role: r.role });
+      return Object.assign(d, { settings: r.settings || null, role: r.role, contact: r.contact || '' });
     },
     async addSale(shop, f) { const r = await this.call(shop, 'addSale', f); return r.sale; },
     async addStock(shop, f) { return this.call(shop, 'addStock', f); },
