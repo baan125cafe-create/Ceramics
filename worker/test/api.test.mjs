@@ -13,9 +13,11 @@ fs.rmSync(state, { recursive: true, force: true });
 
 // Test PINs for this throwaway database only.
 const scramble = pin => { const s = crypto.randomBytes(8).toString('hex'); return s + ':' + crypto.createHash('sha256').update(s + pin).digest('hex'); };
-const vars = path.join(root, '.wrangler', 'test.vars');
-fs.mkdirSync(path.dirname(vars), { recursive: true });
-fs.writeFileSync(vars, ['BAAN_OWNER_PIN_HASH=' + scramble('246810'), 'BAAN_STAFF_PIN_HASH=' + scramble('135791'), 'CHUD_OWNER_PIN_HASH=' + scramble('864200'), 'CHUD_STAFF_PIN_HASH=' + scramble('975310')].join('\n'));
+// Passed with --var so they win over a local .dev.vars (wrangler dev reads .dev.vars first and
+// then ignores --env-file, so the test PINs wouldn't match on a computer that has one).
+fs.mkdirSync(path.join(root, '.wrangler'), { recursive: true });
+const testVars = { BAAN_OWNER_PIN_HASH: scramble('246810'), BAAN_STAFF_PIN_HASH: scramble('135791'), CHUD_OWNER_PIN_HASH: scramble('864200'), CHUD_STAFF_PIN_HASH: scramble('975310'), PIN_CONTACT: '', RESEND_API_KEY: '', REPORT_TO: '' };
+const varArgs = Object.entries(testVars).flatMap(([k, v]) => ['--var', k + ':' + v]);
 
 const wr = (...a) => execFileSync('npx', ['wrangler', ...a], { cwd: root, stdio: 'pipe' });
 // Start from the schema as it was before "not for sale" and the inventory history, then run
@@ -40,7 +42,7 @@ INSERT INTO sales (shop,id,productId,productName,quantity,sellPrice,total,paymen
 `);
 wr('d1', 'execute', 'shop-db', '--local', '--persist-to', state, '--file', seed);
 
-const dev = spawn('npx', ['wrangler', 'dev', '--port', String(PORT), '--persist-to', state, '--env-file', vars, '--test-scheduled'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+const dev = spawn('npx', ['wrangler', 'dev', '--port', String(PORT), '--persist-to', state, ...varArgs, '--test-scheduled'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 let log = ''; dev.stdout.on('data', d => { log += d; }); dev.stderr.on('data', d => { log += d; });
 // Stop wrangler and the local runtime it started (the whole process group).
 const stop = code => {
