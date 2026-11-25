@@ -126,13 +126,18 @@ h1, h2, h3 { margin: 0; font-weight: 400; text-wrap: balance; }
 .dir-btn { width: var(--control-h); height: 100%; display: inline-flex; align-items: center; justify-content: center; }
 .dir-btn svg { width: 20px; height: 20px; }
 .row-when { font-size: 12px; color: var(--muted); }
-/* Inventory history in Edit product */
-.history { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line); padding-top: 14px; }
-.history h3 { margin: 0; font-size: 15px; }
+/* Inventory history: its own view in the product window. The window stays put; only the list scrolls. */
+.sheet.sheet-locked { height: var(--sheet-lock); }
+.hist-scroll { max-height: var(--hist-h); overflow-y: auto; overscroll-behavior: contain; margin: 0 -4px; padding: 0 4px; border-radius: var(--r-sm); }
+.sheet-locked .hist-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
+.hist-scroll:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .hist-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.hist-list li { padding: 10px 0; border-top: 1px solid var(--surface-2); font-size: 14px; }
-.hist-list li:first-child { border-top: 0; }
-.hist-list small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.hist-list li { display: flex; flex-direction: column; gap: 2px; padding: 12px 0; border-top: 1px dotted var(--hist-divider); font-size: var(--fs-md); }
+.hist-list li:first-child { border-top: 0; padding-top: 2px; }
+.hist-list small { color: var(--muted); font-size: var(--fs-sm); }
+/* Save and Remove side by side, so the edit window fits a phone screen without scrolling. */
+.btn-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.btn-row .btn { min-height: var(--btn-h-lg); font-size: var(--fs-base); border-radius: var(--control-radius); }
 /* Search and filter as two equal bars (stacked on phones). */
 .toolbar.two { display: grid; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 700px) { .toolbar.two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -348,6 +353,8 @@ tfoot td { font-weight: 700; border-bottom: 0; }
 /* Sheet / dialog */
 .overlay { position: fixed; inset: 0; z-index: 50; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; }
 .sheet { width: 100%; max-width: 520px; max-height: 92%; overflow-y: auto; background: var(--bg); border-radius: 24px 24px 0 0; padding: 10px 20px calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 14px; }
+/* Nothing in a sheet squeezes when it overflows (the grab handle would vanish and nudge the header). */
+.sheet > * { flex-shrink: 0; }
 .sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--line); align-self: center; }
 .sheet-head { display: flex; align-items: center; gap: 12px; }
 .sheet-head h2 { font-family: var(--font-display); font-size: 22px; flex: 1 1 auto; min-width: 0; }
