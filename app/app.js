@@ -68,6 +68,8 @@
     calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>',
     sortAsc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 18V6M4 10l4-4 4 4"/><path d="M14 8h6M14 12h4.5M14 16h3"/></svg>',
     sortDesc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6v12M4 14l4 4 4-4"/><path d="M14 8h3M14 12h4.5M14 16h6"/></svg>',
+    history: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>',
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>',
     // Price tag: "Ready to sell" on not-for-sale items.
@@ -1064,7 +1066,8 @@
     return null;
   }
   function closeSheet() { const r = $('#sheet-root'); if (r) r.innerHTML = ''; }
-  const sheetHead = (title, sub, p) => `<div class="grab" aria-hidden="true"></div><div class="sheet-head">${p ? thumb(p) : ''}<div class="sheet-title"><h2>${esc(title)}</h2>${sub ? `<div class="muted small">${sub}</div>` : ''}</div><button type="button" class="icon-btn" data-act="close" aria-label="Close">${I.close}</button></div>`;
+  // Sheet header: optional back button or photo, title + line under it, optional action buttons, close.
+  const sheetHead = (title, sub, p, opts = {}) => `<div class="grab" aria-hidden="true"></div><div class="sheet-head">${p ? thumb(p) : ''}<div class="sheet-title"><h2>${esc(title)}</h2>${sub ? `<div class="muted small">${sub}</div>` : ''}</div>${opts.actions || ''}<button type="button" class="icon-btn" data-act="close" aria-label="Close">${I.close}</button></div>`;
   const previewNote = () => readOnly() ? `<p class="preview-note">${esc(READ_ONLY)}</p>` : '';
 
   // ---------- confirm step for anything destructive ----------
@@ -1206,24 +1209,45 @@
   function openEdit(id) {
     const p = shown().find(x => x.id === id);
     if (!p) return;
+    // Coming back from the history view keeps what was already typed.
+    const d = editing && editing.id === id && editing.draft ? editing.draft : null;
     editing = { id };
+    const val = (k, v) => esc(d ? d[k] : v);
+    const nfsNow = d ? d.notForSale === '1' : notForSale(p);
+    const histBtn = `<button type="button" class="icon-btn add-btn" data-act="show-history" aria-label="History for ${esc(label(p))}" title="History">${I.history}</button>`;
     openSheet(`
-      ${sheetHead('Edit product', esc(label(p)), p)}
+      ${sheetHead('Edit product', esc(label(p)), p, { actions: histBtn })}
       <form id="edit-form" class="stack" novalidate>
-        <label class="field" for="edit-name">Product name<input id="edit-name" name="name" value="${esc(p.name)}" required></label>
-        <label class="field" for="edit-size">Size<input id="edit-size" name="size" value="${esc(p.size)}" placeholder="e.g. ${esc(SHOPS[S.shop].sizeHint || '300 ml')}"></label>
+        <label class="field" for="edit-name">Product name<input id="edit-name" name="name" value="${val('name', p.name)}" required></label>
+        <label class="field" for="edit-size">Size<input id="edit-size" name="size" value="${val('size', p.size)}" placeholder="e.g. ${esc(SHOPS[S.shop].sizeHint || '300 ml')}"></label>
         <div class="grid-2">
-          <label class="field" for="edit-cost">Cost price (฿)<input id="edit-cost" name="costPrice" type="number" min="0" value="${p.costPrice || ''}" placeholder="Missing"></label>
-          <label class="field" for="edit-sell">Sell price (฿)<input id="edit-sell" name="sellPrice" type="number" min="0" value="${p.sellPrice > 0 ? p.sellPrice : ''}" placeholder="${notForSale(p) ? 'Optional' : 'Required'}"></label>
+          <label class="field" for="edit-cost">Cost price (฿)<input id="edit-cost" name="costPrice" type="number" min="0" value="${val('costPrice', p.costPrice || '')}" placeholder="Missing"></label>
+          <label class="field" for="edit-sell">Sell price (฿)<input id="edit-sell" name="sellPrice" type="number" min="0" value="${val('sellPrice', p.sellPrice > 0 ? p.sellPrice : '')}" placeholder="${nfsNow ? 'Optional' : 'Required'}"></label>
         </div>
-        ${nfsCheck('edit', notForSale(p))}
-        <label class="field" for="edit-qty">Quantity on the shelf<input id="edit-qty" name="quantity" type="number" min="0" value="${p.quantity}"><span class="hint">Use this to correct a count after a stock-take. For new deliveries, use + Add.</span></label>
+        ${nfsCheck('edit', nfsNow)}
+        <label class="field" for="edit-qty">Quantity on the shelf<input id="edit-qty" name="quantity" type="number" min="0" value="${val('quantity', p.quantity)}"><span class="hint">To fix a count after a stock-take. For new deliveries, use + Add.</span></label>
         <div class="pin-err text-bad" id="edit-err" role="alert"></div>
         ${previewNote()}
-        <button type="submit" class="btn primary block" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off in this preview' : 'Save changes'}</button>
-        <button type="button" class="btn danger" data-act="delete-product" ${readOnly() ? 'disabled' : ''}>Remove product…</button>
-      </form>
-      <section class="history" aria-labelledby="hist-h"><h3 id="hist-h">Inventory history</h3><div id="stock-history" class="muted small">Loading…</div></section>`, 'Edit product');
+        <div class="btn-row">
+          <button type="submit" class="btn primary" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off' : 'Save changes'}</button>
+          <button type="button" class="btn danger" data-act="delete-product" ${readOnly() ? 'disabled' : ''}>Remove product…</button>
+        </div>
+      </form>`, 'Edit product');
+  }
+  // History opens in the same window, at the same height; only the list inside it scrolls.
+  function openHistory() {
+    const p = editing && shown().find(x => x.id === editing.id);
+    if (!p) return;
+    const f = $('#edit-form');
+    if (f) editing.draft = { name: f.elements.name.value, size: f.elements.size.value, costPrice: f.elements.costPrice.value, sellPrice: f.elements.sellPrice.value, quantity: f.elements.quantity.value, notForSale: f.elements.notForSale.value };
+    // Keep the window exactly as tall as the edit form so switching views doesn't jump.
+    const sheet = $('#sheet-root .sheet');
+    if (sheet) { sheet.style.setProperty('--sheet-lock', sheet.offsetHeight + 'px'); sheet.classList.add('sheet-locked'); }
+    // Back sits where the history button was, so the same tap switches back and forth.
+    const backBtn = `<button type="button" class="icon-btn add-btn" data-act="back-to-edit" aria-label="Back to edit product" title="Back to edit product">${I.back}</button>`;
+    openSheet(`
+      ${sheetHead('History', esc(label(p)), p, { actions: backBtn })}
+      <div class="hist-scroll" id="stock-history" tabindex="0" aria-label="History, newest first"><p class="muted small m0">Loading…</p></div>`, 'History');
     loadHistory(p);
   }
   // Who added how many and when, newest first. The first entry comes from the product itself
@@ -1233,18 +1257,17 @@
     try { r = await backend().stockLog(S.shop, p.id); } catch (e) { r = { error: e.message }; }
     const box = $('#stock-history');
     if (!box || !editing || editing.id !== p.id) return;
-    if (r.error) { box.textContent = 'Couldn’t load the history. ' + r.error; return; }
+    if (r.error) { box.innerHTML = `<p class="muted small m0">Couldn’t load the history. ${esc(r.error)}</p>`; return; }
     const by = n => n ? ' · ' + esc(n) : '';
     const rows = (r.log || []).map(x => {
       const n = Number(x.delta), after = x.quantityAfter != null ? ` → ${x.quantityAfter} on the shelf` : '';
       const what = x.kind === 'restock' ? `<b class="tone-ok">+${n}</b> added${by(x.addedBy)}` : x.kind === 'added' ? `New product with <b>${n}</b>${by(x.addedBy)}` : `Count changed by <b>${n > 0 ? '+' + n : '−' + Math.abs(n)}</b>${by(x.addedBy)}`;
       const cost = x.costPrice != null && x.kind === 'restock' ? ` · ${money(x.costPrice)} each` : '';
-      return `<li><span>${what}<small>${esc(whenLabel(x.createdAt))}${after}${cost}</small></span></li>`;
+      return `<li><span class="hist-what">${what}</span><small>${esc(whenLabel(x.createdAt))}${after}${cost}</small></li>`;
     });
     const hasAdded = (r.log || []).some(x => x.kind === 'added');
     const origin = r.product || {};
-    if (!hasAdded && origin.createdAt) rows.push(`<li><span>Added to the app${by(origin.addedBy)}<small>${esc(whenLabel(origin.createdAt))} · count not recorded before the history started</small></span></li>`);
-    box.className = '';
+    if (!hasAdded && origin.createdAt) rows.push(`<li><span class="hist-what">Added to the app${by(origin.addedBy)}</span><small>${esc(whenLabel(origin.createdAt))} · count not recorded before the history started</small></li>`);
     box.innerHTML = rows.length ? `<ul class="hist-list">${rows.join('')}</ul>` : '<p class="muted small m0">No history yet. It starts with the next + Add or count change.</p>';
   }
 
@@ -1359,6 +1382,8 @@
       case 'save-sale': return saveSale();
       case 'save-restock': return saveRestock();
       case 'save-onsale': return saveOnSale();
+      case 'show-history': return openHistory();
+      case 'back-to-edit': { const sh = $('#sheet-root .sheet'); if (sh) sh.classList.remove('sheet-locked'); return editing && openEdit(editing.id); }
       case 'refresh': return loadData(true).then(() => toast('Data refreshed'));
       case 'export': return exportCsv();
       case 'retry-detect': delete Backends.live.info[S.shop]; return renderSignIn();

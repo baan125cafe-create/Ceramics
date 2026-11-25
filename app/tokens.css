@@ -28,6 +28,8 @@
   /* Dropdown lists and pop-overs */
   --pop-bg: var(--surface); --pop-line: var(--line); --pop-radius: var(--r-md); --pop-shadow: var(--shadow-pop);
   --option-h: 56px; --option-hover: var(--surface-2); --option-selected: var(--accent-soft);
+  /* Inventory history list: height of the scrolling area, and the dotted line between entries */
+  --hist-h: min(60vh, 460px); --sheet-lock: auto; --hist-divider: color-mix(in srgb, var(--muted) 55%, transparent);
   /* Header, sidebar and bottom bar. In dark mode a lighter brown than the cards so they stand apart. */
   --chrome: #EDE1CF; --chrome-line: #DBC9B2; --chrome-on: #E2CCB4;
   /* Shadows */
