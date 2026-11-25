@@ -33,7 +33,8 @@
     const products = (d.products || []).filter(p => p && p.id !== '' && p.id != null).map(p => ({
       ...p, id: String(p.id), name: String(p.name || '').trim(), size: String(p.size || '').trim(),
       costPrice: num(p.costPrice), sellPrice: num(p.sellPrice), quantity: num(p.quantity), imageUrl: String(p.imageUrl || ''),
-      archived: !(p.archived === '' || p.archived == null || p.archived === false)
+      archived: !(p.archived === '' || p.archived == null || p.archived === false),
+      lastStockedAt: String(p.lastStockedAt || p.createdAt || '')
     }));
     const sales = (d.sales || []).filter(s => s && s.id !== '' && s.id != null).map(s => ({
       ...s, id: String(s.id), productId: String(s.productId == null ? '' : s.productId), productName: String(s.productName || '').trim(),
@@ -44,7 +45,13 @@
 
   // ---------- demo source ----------
   const demoCache = {};
-  const demoData = shop => { if (!demoCache[shop]) demoCache[shop] = normalize(window.makeDemoData(shop)); return demoCache[shop]; };
+  const demoData = shop => { if (!demoCache[shop]) demoCache[shop] = Object.assign(normalize(window.makeDemoData(shop)), { stockLog: [] }); return demoCache[shop]; };
+  // Inventory history in the demo, shaped like the live API's stock_log rows.
+  const demoLog = (shop, p, kind, delta, addedBy, costPrice) => {
+    const at = new Date().toISOString();
+    demoData(shop).stockLog.push({ productId: p.id, kind, delta, quantityAfter: p.quantity, costPrice: costPrice == null ? null : costPrice, addedBy: addedBy || '', createdAt: at });
+    if (kind !== 'corrected') p.lastStockedAt = at;
+  };
   const lock = { fails: 0, until: 0, level: 0 };
   const Demo = {
     id: 'demo',
@@ -83,18 +90,21 @@
       p.quantity -= q;
       return sale;
     },
-    async addStock(shop, { productId, add, costPrice }) {
+    async addStock(shop, { productId, add, costPrice, by }) {
       const p = demoData(shop).products.find(x => x.id === productId);
       if (!p) throw new Error('That product no longer exists.');
       const n = Math.floor(num(add));
       if (n < 1) throw new Error('Add at least 1 piece.');
       p.quantity += n; // adds to the count, never overwrites it
-      if (costPrice !== '' && costPrice != null && num(costPrice) >= 0) p.costPrice = num(costPrice);
+      const cost = costPrice !== '' && costPrice != null && num(costPrice) >= 0 ? num(costPrice) : null;
+      if (cost != null) p.costPrice = cost;
+      demoLog(shop, p, 'restock', n, String(by || '').trim() || 'Owner', cost);
       return p;
     },
     async addProduct(shop, f) {
       const p = { id: 'PRD-' + Date.now(), name: f.name, size: f.size, costPrice: num(f.costPrice), sellPrice: num(f.sellPrice), quantity: Math.floor(num(f.quantity)), imageUrl: f.imageUrl || '', addedBy: f.addedBy || '', createdAt: new Date().toISOString(), notForSale: f.notForSale ? 1 : 0 };
       demoData(shop).products.push(p);
+      demoLog(shop, p, 'added', p.quantity, p.addedBy, p.costPrice > 0 ? p.costPrice : null);
       return p;
     },
     async updateProduct(shop, id, f) {
@@ -102,12 +112,19 @@
       if (!p) throw new Error('That product no longer exists.');
       // Only the fields sent change, like the live API.
       const set = { name: f.name, size: f.size, costPrice: f.costPrice === undefined ? undefined : num(f.costPrice), sellPrice: f.sellPrice === undefined ? undefined : num(f.sellPrice), quantity: f.quantity === undefined ? undefined : Math.floor(num(f.quantity)), notForSale: f.notForSale === undefined ? undefined : (f.notForSale ? 1 : 0) };
+      const before = p.quantity;
       Object.keys(set).forEach(k => { if (set[k] !== undefined) p[k] = set[k]; });
+      if (set.quantity !== undefined && set.quantity !== before) demoLog(shop, p, 'corrected', set.quantity - before, 'Owner');
       return p;
     },
     async deleteProduct(shop, id) {
       const p = demoData(shop).products.find(x => x.id === id);
       if (p) p.archived = true; // hidden, like the live script: old sales keep their cost
+    },
+    async stockLog(shop, productId) {
+      const d = demoData(shop), p = d.products.find(x => x.id === productId);
+      if (!p) throw new Error('That product no longer exists.');
+      return { log: d.stockLog.filter(x => x.productId === productId).slice().reverse(), product: { createdAt: p.createdAt || '', addedBy: p.addedBy || '' } };
     },
     async saveSettings() { return { success: true }; },
     async signOutAll() { return { success: true }; },
@@ -146,7 +163,7 @@
   const apiBase = () => APIS[apiAt] || '';
   const API = APIS[0] || '';
   const READ_ONLY = 'Please sign in again to save.';
-  const ACTIONS = ['getVersion', 'login', 'getAll', 'addSale', 'addStock', 'addProduct', 'updateProduct', 'archiveProduct', 'uploadImage', 'saveSettings', 'signOutAll', 'sendReport', 'previewTestData', 'clearTestData'];
+  const ACTIONS = ['getVersion', 'login', 'getAll', 'addSale', 'addStock', 'addProduct', 'updateProduct', 'archiveProduct', 'uploadImage', 'saveSettings', 'signOutAll', 'sendReport', 'previewTestData', 'clearTestData', 'stockLog'];
   const passKey = shop => 'b125_pass_' + shop + (LOCAL ? '_local' : '');
   // Photos saved in R2 are stored as "/img/…" paths on the API.
   const photoUrl = u => (/^\/img\//.test(String(u || '')) && apiBase() ? apiBase() + u : String(u || ''));
@@ -211,7 +228,8 @@
     async signOutAll(shop) { const r = await this.call(shop, 'signOutAll'); this.dropPass(shop); return r; },
     async sendReport(shop, kind, to) { return this.call(shop, 'sendReport', to ? { kind, to } : { kind }); },
     async previewTestData(shop) { return this.call(shop, 'previewTestData'); },
-    async clearTestData(shop, ids) { return this.call(shop, 'clearTestData', ids); }
+    async clearTestData(shop, ids) { return this.call(shop, 'clearTestData', ids); },
+    async stockLog(shop, productId) { return this.call(shop, 'stockLog', { productId }); }
   };
 
   // Test rows: left out of every total, and clearable from Settings. A product is a test product

@@ -39,6 +39,21 @@ CREATE TABLE IF NOT EXISTS sales (
 );
 CREATE INDEX IF NOT EXISTS sales_by_date ON sales (shop, saleDate);
 
+-- Inventory history (see migrations/0002_stock_log.sql).
+CREATE TABLE IF NOT EXISTS stock_log (
+  shop          TEXT NOT NULL,
+  id            TEXT NOT NULL,
+  productId     TEXT NOT NULL,
+  kind          TEXT NOT NULL,              -- 'added' (new product), 'restock' (+ Add), 'corrected' (count changed in Edit)
+  delta         INTEGER NOT NULL,           -- pieces added (negative when a correction lowers the count)
+  quantityAfter INTEGER,                    -- count on the shelf right after
+  costPrice     REAL,                       -- cost per piece entered with a restock, if any
+  addedBy       TEXT NOT NULL DEFAULT '',
+  createdAt     TEXT NOT NULL,
+  PRIMARY KEY (shop, id)
+);
+CREATE INDEX IF NOT EXISTS stock_log_by_product ON stock_log (shop, productId, createdAt);
+
 -- Staff names, "running low" level, sign-out generation.
 CREATE TABLE IF NOT EXISTS settings (
   shop  TEXT NOT NULL,

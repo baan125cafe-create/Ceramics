@@ -216,7 +216,8 @@ Some updates add a column to the database. They come as a file in `migrations/` 
 
 | File | Adds | Run |
 | --- | --- | --- |
-| `0001_not_for_sale.sql` | `products.notForSale` (owner's "Not for sale" tick) | `npm run db:migrate:remote`, then `npm run deploy` |
+| `0001_not_for_sale.sql` | `products.notForSale` (owner's "Not for sale" tick) | `npx wrangler d1 execute shop-db --remote --file=migrations/0001_not_for_sale.sql` (done) |
+| `0002_stock_log.sql` | `stock_log` table (inventory history: who added how many, when) | `npm run db:migrate:remote`, then `npm run deploy` |
 
 For the copy on your computer, run `npm run db:migrate:local` once. A second run says "duplicate column name", which means it's already done.
 

@@ -65,6 +65,9 @@
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>',
     undo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
     info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+    calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>',
+    sortAsc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 18V6M4 10l4-4 4 4"/><path d="M14 8h6M14 12h4.5M14 16h3"/></svg>',
+    sortDesc: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6v12M4 14l4 4 4-4"/><path d="M14 8h3M14 12h4.5M14 16h6"/></svg>',
     chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" stroke-width="2.6"><path d="M20 6 9 17l-5-5"/></svg>',
     // Price tag: "Ready to sell" on not-for-sale items.
@@ -95,7 +98,7 @@
     mode: sess.get('b125_mode'), // 'demo' | 'live'
     route: null, pin: '', pinErr: '', connectErr: '',
     cache: {}, loadedAt: {}, loading: false, loadError: '',
-    ui: { period: '30d', stockFilter: 'all', stockQ: '', staffTab: 'in', sellQ: '', salesPeriod: '30d', salesPay: 'all', salesQ: '' },
+    ui: { period: '30d', rangeFrom: '', rangeTo: '', stockFilter: 'all', stockSort: 'name', stockDir: 'asc', stockQ: '', staffTab: 'in', sellQ: '', salesPeriod: '30d', salesPay: 'all', salesQ: '' },
     lastSeller: lsGet('b125_seller') || ''
   };
   // Sample data is for trying things on this computer; the live site only offers the real data.
@@ -123,7 +126,7 @@
     const cur = cfg.options.find(o => o.value === cfg.value);
     return `<div class="picker" id="pk-${id}">
       <button type="button" class="picker-btn" data-pick-toggle="${id}" aria-haspopup="listbox" aria-expanded="false"${cfg.labelledBy ? ` aria-labelledby="${cfg.labelledBy} pkb-${id}"` : ` aria-label="${esc(cfg.ariaLabel || '')}"`}>
-        ${cur && cur.thumb ? cur.thumb : ''}<span class="picker-text" id="pkb-${id}">${cur ? `<b>${esc(cfg.prefix || '')}${esc(cur.label)}</b>${cur.sub ? `<small>${esc(cur.sub)}</small>` : ''}` : `<span class="picker-placeholder">${esc(cfg.placeholder || 'Choose…')}</span>`}</span>${cur && cur.meta != null ? `<span class="picker-meta">${esc(cur.meta)}</span>` : ''}${I.chevron}
+        ${cur && cur.thumb ? cur.thumb : ''}<span class="picker-text" id="pkb-${id}">${cur ? `<b>${cfg.prefix ? `<span class="picker-prefix">${esc(cfg.prefix)}</span>` : ''}${esc(cur.label)}</b>${cur.sub ? `<small>${esc(cur.sub)}</small>` : ''}` : `<span class="picker-placeholder">${esc(cfg.placeholder || 'Choose…')}</span>`}</span>${cur && cur.meta != null ? `<span class="picker-meta">${esc(cur.meta)}</span>` : ''}${I.chevron}
       </button>
       <div class="picker-panel" hidden>
         ${cfg.search ? `<label class="picker-search">${I.search}<span class="sr-only">${esc(cfg.searchPlaceholder || 'Search')}</span><input type="search" data-pick-q="${id}" placeholder="${esc(cfg.searchPlaceholder || 'Search')}" autocomplete="off" enterkeyhint="search"></label>` : ''}
@@ -299,9 +302,25 @@
       case '7d': return { from: addDays(t, -6), to: t, pFrom: addDays(t, -13), pTo: addDays(t, -7), label: 'Last 7 days', prevLabel: 'the 7 days before' };
       case '12m': { const m0 = addMonths(monthKey(t), -11) + '-01'; const p0 = addMonths(monthKey(t), -23) + '-01'; return { from: m0, to: t, pFrom: p0, pTo: addDays(m0, -1), label: 'Last 12 months', prevLabel: 'the 12 months before' }; }
       case 'all': return { from: '0000-00-00', to: '9999-99-99', label: 'All time' };
+      case 'custom': {
+        const [a, b] = customRange(), n = daysBetween(a, b) + 1;
+        return { from: a, to: b, pFrom: addDays(a, -n), pTo: addDays(a, -1), days: n, label: n === 1 ? dayLabel(a) : dayLabel(a) + ' – ' + dayLabel(b), prevLabel: n === 1 ? 'the day before' : `the ${n} days before` };
+      }
       default: return { from: addDays(t, -29), to: t, pFrom: addDays(t, -59), pTo: addDays(t, -30), label: 'Last 30 days', prevLabel: 'the 30 days before' };
     }
   }
+  const isYmd = v => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+  const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000);
+  // "Dates": the owner's own from–to range (Bangkok days). Defaults to the last 30 days; never past today.
+  function customRange() {
+    const t = today();
+    let a = isYmd(S.ui.rangeFrom) ? S.ui.rangeFrom : addDays(t, -29), b = isYmd(S.ui.rangeTo) ? S.ui.rangeTo : t;
+    if (b > t) b = t;
+    if (a > b) [a, b] = [b, a];
+    return [a, b];
+  }
+  // A moment as "20 Oct - 14:05" in Bangkok time.
+  const whenLabel = iso => { const t = new Date(iso); if (!iso || isNaN(t)) return ''; const d = bkkDate(t); return dayLabel(d) + ' - ' + t.toLocaleTimeString('en-GB', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false }); };
   const inRange = (s, a, b) => { const d = saleDay(s); return !!d && d >= a && d <= b; };
 
   function stats(key) {
@@ -328,7 +347,21 @@
     });
 
     let buckets = [];
-    if (key === 'today') {
+    if (key === 'custom') {
+      // One point per hour for a single day, per day up to ~2 months, per month beyond that.
+      if (R.days === 1) {
+        for (let h = 10; h <= 21; h++) buckets.push({ k: h, label: h + ':00', v: 0 });
+        cur.forEach(s => { const h = Math.min(21, Math.max(10, saleHour(s))); buckets[h - 10].v += s.total; });
+      } else if (R.days <= 62) {
+        for (let i = 0; i < R.days; i++) { const d = addDays(R.from, i); buckets.push({ k: d, label: dayLabel(d), v: 0 }); }
+        const map = {}; buckets.forEach(b => { map[b.k] = b; });
+        cur.forEach(s => { const b = map[saleDay(s)]; if (b) b.v += s.total; });
+      } else {
+        for (let m = monthKey(R.from); m <= monthKey(R.to); m = addMonths(m, 1)) buckets.push({ k: m, label: monthLabel(m) + (m.slice(0, 4) !== today().slice(0, 4) ? ' ' + m.slice(2, 4) : ''), v: 0 });
+        const map = {}; buckets.forEach(b => { map[b.k] = b; });
+        cur.forEach(s => { const b = map[monthKey(saleDay(s))]; if (b) b.v += s.total; });
+      }
+    } else if (key === 'today') {
       for (let h = 10; h <= 21; h++) buckets.push({ k: h, label: h + ':00', v: 0 });
       cur.forEach(s => { const h = Math.min(21, Math.max(10, saleHour(s))); buckets[h - 10].v += s.total; });
     } else if (key === '12m') {
@@ -447,7 +480,7 @@
           ${sideLinks}
           <div class="side-foot">
             <button type="button" class="side-link" data-act="refresh">${I.refresh}Refresh data</button>
-            <span class="updated" style="padding:0 12px 4px 44px">${esc(updatedLabel())}</span>
+            <span class="updated side-updated">${esc(updatedLabel())}</span>
             <button type="button" class="side-link" data-act="signout">${I.out}Sign out</button>
           </div>
         </aside>
@@ -533,7 +566,7 @@
       const dots = Array.from({ length: L }, (_, i) => `<span class="${i < S.pin.length ? 'on' : ''}"></span>`).join('');
       const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map(k =>
         `<button type="button" class="${k === 'C' || k === '⌫' ? 'ghost' : ''}" data-key="${k}" aria-label="${k === '⌫' ? 'Delete' : (k === 'C' ? 'Clear' : k)}">${k === 'C' ? 'Clear' : k}</button>`).join('');
-      body = `<div style="color:var(--brand-dark-muted);font-size:14px">Enter your PIN</div>
+      body = `<div class="pin-prompt">Enter your PIN</div>
           <div class="pin-dots" role="img" aria-label="${S.pin.length} of ${L} digits entered">${dots}</div>
           <div class="pin-err" role="alert">${esc(S.pinErr)}</div>
           <div class="keypad">${keys}</div>
@@ -584,9 +617,17 @@
     const periods = [['today', 'Today'], ['7d', '7 days'], ['30d', '30 days'], ['12m', '12 mo']];
     // Phones: under the title. Wide screens: top of the right column, level with the chart.
     // Only one is ever shown, so screen readers meet it once.
-    const periodSeg = cls => `<div class="seg ${cls}" role="group" aria-label="Time period">
+    // The calendar button picks your own dates; the two date boxes show while it's selected.
+    const [ra, rb] = customRange();
+    const periodSeg = cls => `<div class="period-box ${cls}"><div class="seg period-seg" role="group" aria-label="Time period">
           ${periods.map(([k, t]) => `<button type="button" data-period="${k}" aria-pressed="${S.ui.period === k}">${t}</button>`).join('')}
-        </div>`;
+          <button type="button" class="seg-icon" data-period="custom" aria-pressed="${S.ui.period === 'custom'}" aria-label="Pick dates" title="Pick dates">${I.calendar}</button>
+        </div>
+        ${S.ui.period === 'custom' ? `<div class="range-row">
+          <label class="field">From<input type="date" data-range="from" value="${ra}" max="${rb}"></label>
+          <label class="field">To<input type="date" data-range="to" value="${rb}" min="${ra}" max="${today()}"></label>
+        </div>` : ''}
+      </div>`;
     let delta = '<span class="delta flat">No earlier sales</span>';
     if (st.prevRevenue > 0) {
       const d = (st.revenue - st.prevRevenue) / st.prevRevenue * 100;
@@ -612,14 +653,14 @@
       </div>
       <div class="dash">
         <section class="hero" aria-label="Revenue">
-          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-            <div style="display:flex;flex-direction:column;gap:4px"><span class="eyebrow">Revenue · ${esc(st.R.label.toLowerCase())}</span><span class="big">${money(st.revenue)}</span></div>
+          <div class="hero-top">
+            <div class="hero-figure"><span class="eyebrow">Revenue · ${esc(st.R.label.toLowerCase())}</span><span class="big">${money(st.revenue)}</span></div>
             ${delta}
           </div>
           <div class="vs">${st.prevRevenue > 0 ? `vs ${money(st.prevRevenue)} ${esc(st.R.prevLabel)}` : '&nbsp;'}</div>
-          <div class="chart" role="img" aria-label="Revenue by ${S.ui.period === '12m' ? 'month' : (S.ui.period === 'today' ? 'hour' : 'day')}, highest ${money(peak)}">
-            <div class="yaxis"><span style="top:0">${moneyShort(max)}</span><span style="top:50%">${moneyShort(max / 2)}</span><span style="top:100%">฿0</span></div>
-            <div class="plot"><div class="grid-line" style="top:0"></div><div class="grid-line" style="top:50%"></div>${line}</div>
+          <div class="chart" role="img" aria-label="Revenue by ${S.ui.period === '12m' || (S.ui.period === 'custom' && st.R.days > 62) ? 'month' : (S.ui.period === 'today' || (S.ui.period === 'custom' && st.R.days === 1) ? 'hour' : 'day')}, highest ${money(peak)}">
+            <div class="yaxis"><span class="at-top">${moneyShort(max)}</span><span class="at-mid">${moneyShort(max / 2)}</span><span class="at-bottom">฿0</span></div>
+            <div class="plot"><div class="grid-line at-top"></div><div class="grid-line at-mid"></div>${line}</div>
           </div>
           <div class="xaxis"><span>${esc(st.buckets[0].label)}</span><span>${esc(st.buckets[mid].label)}</span><span>${esc(st.buckets[st.buckets.length - 1].label)}</span></div>
         </section>
@@ -664,7 +705,7 @@
 
         <section class="card w4">
           <h2>By staff</h2>
-          ${st.staff.length ? st.staff.map(s => `<div class="staff-row"><span style="display:flex;align-items:center;min-width:0"><span class="avatar">${esc(s.name[0])}</span>${esc(s.name)}</span><span class="muted">${s.n} sales · <b class="text-ink">${money(s.rev)}</b></span></div>`).join('') : '<p class="muted">No sales in this period yet.</p>'}
+          ${st.staff.length ? st.staff.map(s => `<div class="staff-row"><span class="staff-name"><span class="avatar">${esc(s.name[0])}</span>${esc(s.name)}</span><span class="muted">${s.n} sales · <b class="text-ink">${money(s.rev)}</b></span></div>`).join('') : '<p class="muted">No sales in this period yet.</p>'}
         </section>
       </div>`;
   }
@@ -690,9 +731,9 @@
         <div><h1>Inventory</h1><div class="muted small">${plural(prods.length, 'product')} · ${inStock} in stock</div></div>
         <button type="button" class="btn dark" data-go="add">${I.plus}Product</button>
       </div>
-      <div class="toolbar two">
-        <label class="search">${I.search}<span class="sr-only">Search products</span><input id="stock-q" type="search" placeholder="Search products" value="${esc(S.ui.stockQ)}" data-input="stockQ"></label>
-        <div id="stock-chips"></div>
+      <div class="toolbar inv">
+        <label class="search">${I.search}<span class="sr-only">Search products</span><input id="stock-q" type="search" placeholder="Search these products" value="${esc(S.ui.stockQ)}" data-input="stockQ"></label>
+        <div class="inv-filters"><div id="stock-chips"></div><div id="stock-sort"></div><span id="stock-dir"></span></div>
       </div>
       <ul class="list" id="stock-list"></ul>`;
   }
@@ -707,11 +748,31 @@
       options: defs.filter(d => (d[0] !== 'nocost' && d[0] !== 'nfs') || c[d[0]] || S.ui.stockFilter === d[0]).map(([k, t]) => ({ value: k, label: t, meta: c[k].toLocaleString('en-US') })),
       onPick: v => { S.ui.stockFilter = v; fillOwnerStock(); }
     });
+    // Sort: each kind has its natural direction (A→Z, newest first, most first); the arrow button flips it.
+    const SORTS = { name: ['Name', 'asc', 'A to Z', 'Z to A'], stocked: ['Last stocked', 'desc', 'Oldest first', 'Newest first'], sold: ['Last sold', 'desc', 'Oldest first', 'Newest first'], qty: ['Count', 'desc', 'Fewest first', 'Most first'] };
+    if (!SORTS[S.ui.stockSort]) S.ui.stockSort = 'name';
+    const sk = S.ui.stockSort, dir = S.ui.stockDir === 'desc' ? 'desc' : 'asc';
+    $('#stock-sort').innerHTML = picker('stocks', {
+      value: sk, ariaLabel: 'Sort by', prefix: 'Sort: ',
+      options: Object.keys(SORTS).map(k => ({ value: k, label: SORTS[k][0] })),
+      onPick: v => { S.ui.stockSort = v; S.ui.stockDir = SORTS[v][1]; fillOwnerStock(); }
+    });
+    const dirText = SORTS[sk][dir === 'asc' ? 2 : 3];
+    $('#stock-dir').innerHTML = `<button type="button" class="dir-btn" data-stockdir="1" aria-label="Order: ${dirText}. Tap to reverse." title="${dirText}">${dir === 'asc' ? I.sortAsc : I.sortDesc}</button>`;
+    // Search looks only within what "Show" lets through, and the result keeps the chosen sort.
     const q = S.ui.stockQ.trim().toLowerCase();
     const f = S.ui.stockFilter;
     const match = p => f === 'all' || (f === 'nocost' ? p.costPrice <= 0 : f === 'nfs' ? notForSale(p) : !notForSale(p) && status(p) === f);
-    const list = prods.filter(p => match(p) && label(p).toLowerCase().includes(q))
-      .sort((a, b) => f === 'low' ? a.quantity - b.quantity : label(a).localeCompare(label(b)));
+    const sold = lastSoldAt();
+    const keyOf = p => sk === 'stocked' ? (p.lastStockedAt || p.createdAt || '') : sk === 'sold' ? (sold[p.id] || '') : sk === 'qty' ? Number(p.quantity) : label(p).toLowerCase();
+    const sign = dir === 'asc' ? 1 : -1;
+    const list = prods.filter(p => match(p) && label(p).toLowerCase().includes(q)).sort((a, b) => {
+      const x = keyOf(a), y = keyOf(b);
+      // Never sold / no date goes last whichever way round.
+      if ((sk === 'stocked' || sk === 'sold') && !x !== !y) return x ? -1 : 1;
+      const c = typeof x === 'number' ? x - y : String(x).localeCompare(String(y));
+      return c ? c * sign : label(a).localeCompare(label(b));
+    });
     const maxQ = Math.max(10, ...prods.map(p => p.quantity));
     $('#stock-list').innerHTML = list.length ? list.map(p => {
       const st = status(p);
@@ -721,6 +782,7 @@
         <button type="button" class="row-body" data-edit="${esc(p.id)}" aria-label="Edit ${esc(label(p))}">
           <span class="row-title">${testBadge(p)}${esc(label(p))}</span>
           <span class="row-sub">${[priceText(p), 'cost ' + (p.costPrice > 0 ? money(p.costPrice) : '—'), margin].filter(Boolean).join(' · ')}</span>
+          ${sk === 'stocked' ? `<span class="row-when">Stocked ${esc(whenLabel(p.lastStockedAt || p.createdAt) || '—')}</span>` : sk === 'sold' ? `<span class="row-when">${sold[p.id] ? 'Last sold ' + esc(whenLabel(sold[p.id])) : 'Not sold yet'}</span>` : ''}
           <span class="stockbar"><span class="track"><i class="fill-${st}" style="width:${Math.max(0, Math.min(100, p.quantity / maxQ * 100)).toFixed(0)}%"></i></span><b class="tone-${st}">${st === 'out' ? (notForSale(p) ? 'None left' : 'Sold out') : p.quantity + (notForSale(p) ? ' kept' : ' left')}</b></span>
         </button>
         ${notForSale(p) ? `<button type="button" class="icon-btn add-btn" data-onsale="${esc(p.id)}" aria-label="Ready to sell: put ${esc(label(p))} on sale" title="Ready to sell">${I.tag}</button>`
@@ -741,12 +803,18 @@
     const nIn = prods.filter(p => p.quantity > 0).length;
     return `
       <div class="page-head"><div><h1>Inventory</h1><div class="muted small">Tap an item to sell it</div></div></div>
-      <div class="seg" role="tablist" aria-label="Inventory" style="max-width:420px">
+      <div class="seg w-420" role="tablist" aria-label="Inventory">
         <button type="button" role="tab" data-stafftab="in" aria-pressed="${S.ui.staffTab === 'in'}" aria-selected="${S.ui.staffTab === 'in'}">In stock · ${nIn}</button>
         <button type="button" role="tab" data-stafftab="out" aria-pressed="${S.ui.staffTab === 'out'}" aria-selected="${S.ui.staffTab === 'out'}">Sold out · ${prods.length - nIn}</button>
       </div>
       <label class="search">${I.search}<span class="sr-only">Search products</span><input id="staff-q" type="search" placeholder="Search" value="${esc(S.ui.stockQ)}" data-input="stockQ"></label>
       <div class="gallery" id="staff-gallery"></div>`;
+  }
+  // Latest sale time per product (ISO), for "Last sold" sorting.
+  function lastSoldAt() {
+    const m = {};
+    data().sales.filter(s => !isTestSale(s)).forEach(s => { const t = s.createdAt || (saleDay(s) ? saleDay(s) + 'T05:00:00Z' : ''); if (t && (!m[s.productId] || t > m[s.productId])) m[s.productId] = t; });
+    return m;
   }
   function lastSold() {
     const m = {};
@@ -790,9 +858,9 @@
   function viewAdd() {
     return `
       <div class="page-head"><div><h1>Add product</h1><div class="muted small">New item for ${esc(SHOPS[S.shop].name)}</div></div></div>
-      <form class="card" id="add-form" style="max-width:620px" novalidate>
+      <form class="card form-card" id="add-form" novalidate>
         <div class="pick">
-          <div class="thumb" id="add-preview" style="width:84px;height:84px;background:var(--surface-2);color:var(--muted)">${I[SHOPS[S.shop].icon]}</div>
+          <div class="thumb lg empty" id="add-preview">${I[SHOPS[S.shop].icon]}</div>
           <label class="btn" for="add-photo">Choose photo</label>
           <input id="add-photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" class="sr-only">
         </div>
@@ -839,7 +907,7 @@
         <div><h1>Sales</h1><div class="muted small" id="sales-sum"></div></div>
         <button type="button" class="btn" data-act="export">Download CSV</button>
       </div>
-      <div class="seg" role="group" aria-label="Time period" style="max-width:520px">${periods.map(([k, t]) => `<button type="button" data-salesperiod="${k}" aria-pressed="${S.ui.salesPeriod === k}">${t}</button>`).join('')}</div>
+      <div class="seg w-520" role="group" aria-label="Time period">${periods.map(([k, t]) => `<button type="button" data-salesperiod="${k}" aria-pressed="${S.ui.salesPeriod === k}">${t}</button>`).join('')}</div>
       <div class="toolbar">
         <label class="search">${I.search}<span class="sr-only">Search sales</span><input id="sales-q" type="search" placeholder="Product, staff or note" value="${esc(S.ui.salesQ)}" data-input="salesQ"></label>
         <div class="chips" role="group" aria-label="Payment">${chips.map(([k, t]) => `<button type="button" class="chip" data-pay="${k}" aria-pressed="${S.ui.salesPay === k}">${esc(t)}</button>`).join('')}</div>
@@ -903,7 +971,7 @@
           <h2>Data check</h2>
           <p class="muted small m0">How the ${plural(chk.nSales, 'sale')} and ${plural(chk.nProducts, 'product')} ${live() ? 'in the shop data' : 'in this sample'} line up with the payment types. Nothing here changes data.</p>
           <p class="muted small m0">${live() ? `${Backends.live.local ? 'Local test copy on this computer' : 'Stored on Cloudflare'} · <span class="break-all">${esc(Backends.live.api)}</span>` : 'Sample data in this browser only'}</p>
-          <div class="table-wrap" style="background:var(--surface-2)"><table>
+          <div class="table-wrap inset"><table>
             <thead><tr><th>Saved as</th><th>Shown as</th><th class="num">Sales</th><th class="num">Total</th></tr></thead>
             <tbody>${chk.pays.map(x => `<tr><td>${esc(x.raw)}</td><td><span class="pill pay-${x.info.kind}">${esc(x.info.kind === 'other' ? 'Other (' + x.raw + ')' : x.info.label)}</span></td><td class="num">${x.n.toLocaleString('en-US')}</td><td class="num">${money(x.total)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales yet.</td></tr>'}</tbody>
           </table></div>
@@ -996,7 +1064,7 @@
     return null;
   }
   function closeSheet() { const r = $('#sheet-root'); if (r) r.innerHTML = ''; }
-  const sheetHead = (title, sub, p) => `<div class="grab" aria-hidden="true"></div><div class="sheet-head">${p ? thumb(p) : ''}<div style="flex:1 1 auto;min-width:0"><h2>${esc(title)}</h2>${sub ? `<div class="muted small">${sub}</div>` : ''}</div><button type="button" class="icon-btn" data-act="close" aria-label="Close">${I.close}</button></div>`;
+  const sheetHead = (title, sub, p) => `<div class="grab" aria-hidden="true"></div><div class="sheet-head">${p ? thumb(p) : ''}<div class="sheet-title"><h2>${esc(title)}</h2>${sub ? `<div class="muted small">${sub}</div>` : ''}</div><button type="button" class="icon-btn" data-act="close" aria-label="Close">${I.close}</button></div>`;
   const previewNote = () => readOnly() ? `<p class="preview-note">${esc(READ_ONLY)}</p>` : '';
 
   // ---------- confirm step for anything destructive ----------
@@ -1052,7 +1120,7 @@
       </div>
       ${noPrice ? `<label class="field" for="sell-price">Price per piece (฿)<input id="sell-price" type="number" min="1" inputmode="decimal" value="${esc(sell.price)}" placeholder="This item has no price yet" required><span class="hint">Used for this sale only. The owner sets the product’s price.</span></label>` : ''}
       <div class="panel"><div class="sum-row items-center"><span class="fw-600">Quantity</span>
-        <div class="stepper gap-14"><button type="button" data-qty="-1" aria-label="One fewer" style="width:44px;height:44px">−</button><output style="font-size:30px;min-width:40px" aria-live="polite">${sell.qty}</output><button type="button" class="plus" data-qty="1" aria-label="One more" style="width:44px;height:44px" ${!p || sell.qty >= max ? 'disabled' : ''}>+</button></div></div></div>
+        <div class="stepper compact"><button type="button" data-qty="-1" aria-label="One fewer">−</button><output aria-live="polite">${sell.qty}</output><button type="button" class="plus" data-qty="1" aria-label="One more" ${!p || sell.qty >= max ? 'disabled' : ''}>+</button></div></div></div>
       <div class="field">Paid by<div class="seg" role="group" aria-label="Payment">${activePays().map(x => `<button type="button" data-paywith="${esc(x.id)}" aria-pressed="${sell.pay === x.id}">${esc(x.label)}</button>`).join('')}</div></div>
       <div class="field">Sold by<div class="chips" role="group" aria-label="Staff">${staffNames().map(n => `<button type="button" class="chip" data-who="${esc(n)}" aria-pressed="${sell.who === n}">${esc(n)}</button>`).join('') || '<span class="muted small">Add staff names in Settings.</span>'}</div></div>
       <label class="field" for="sell-note">Note (optional)<textarea id="sell-note" rows="2" maxlength="300" placeholder="Discount, gift wrap, customer request">${esc(sell.note)}</textarea></label>
@@ -1088,7 +1156,7 @@
   function openRestock(id) {
     const p = shown().find(x => x.id === id);
     if (!p) return;
-    restock = { id, add: 5, cost: p.costPrice > 0 ? p.costPrice : '' };
+    restock = { id, add: 5, cost: p.costPrice > 0 ? p.costPrice : '', by: '' };
     drawRestock();
   }
   function drawRestock() {
@@ -1101,6 +1169,7 @@
         <div class="chips">${[5, 10, 15, 20].map(n => `<button type="button" class="chip" data-addset="${n}" aria-pressed="${restock.add === n}">+${n}</button>`).join('')}</div>
         <div>Shelf after saving: <b>${p.quantity + restock.add}</b></div>
       </div>
+      <div class="field">Added by (optional)<div class="chips" role="group" aria-label="Added by">${staffNames().map(n => `<button type="button" class="chip" data-restockby="${esc(n)}" aria-pressed="${restock.by === n}">${esc(n)}</button>`).join('')}</div><span class="hint">Shown in the product’s inventory history. Left empty, it’s saved as Owner.</span></div>
       <label class="field" for="restock-cost">Cost per piece for this batch (฿)<input id="restock-cost" type="number" min="0" inputmode="decimal" value="${esc(restock.cost)}" placeholder="Cost price"><span class="hint">Saved with each sale from now on, so profit stays right if the price changes later.</span></label>
       <div class="pin-err text-bad" id="restock-err" role="alert"></div>
       ${previewNote()}
@@ -1108,7 +1177,7 @@
       <p class="muted small m0 text-center">This adds to the current count. It never overwrites it, so a sale made at the same moment isn’t lost.</p>`, 'Add inventory');
   }
   function saveRestock() {
-    write(() => backend().addStock(S.shop, { productId: restock.id, add: restock.add, costPrice: $('#restock-cost').value }),
+    write(() => backend().addStock(S.shop, { productId: restock.id, add: restock.add, costPrice: $('#restock-cost').value, by: restock.by }),
       p => { closeSheet(); renderView(); toast(`Added ${restock.add} · ${p.quantity} in inventory`); }, '#restock-err');
   }
 
@@ -1140,7 +1209,7 @@
     editing = { id };
     openSheet(`
       ${sheetHead('Edit product', esc(label(p)), p)}
-      <form id="edit-form" style="display:flex;flex-direction:column;gap:12px" novalidate>
+      <form id="edit-form" class="stack" novalidate>
         <label class="field" for="edit-name">Product name<input id="edit-name" name="name" value="${esc(p.name)}" required></label>
         <label class="field" for="edit-size">Size<input id="edit-size" name="size" value="${esc(p.size)}" placeholder="e.g. ${esc(SHOPS[S.shop].sizeHint || '300 ml')}"></label>
         <div class="grid-2">
@@ -1153,7 +1222,30 @@
         ${previewNote()}
         <button type="submit" class="btn primary block" ${readOnly() ? 'disabled' : ''}>${readOnly() ? 'Saving is off in this preview' : 'Save changes'}</button>
         <button type="button" class="btn danger" data-act="delete-product" ${readOnly() ? 'disabled' : ''}>Remove product…</button>
-      </form>`, 'Edit product');
+      </form>
+      <section class="history" aria-labelledby="hist-h"><h3 id="hist-h">Inventory history</h3><div id="stock-history" class="muted small">Loading…</div></section>`, 'Edit product');
+    loadHistory(p);
+  }
+  // Who added how many and when, newest first. The first entry comes from the product itself
+  // when it was added before the history started being kept.
+  async function loadHistory(p) {
+    let r;
+    try { r = await backend().stockLog(S.shop, p.id); } catch (e) { r = { error: e.message }; }
+    const box = $('#stock-history');
+    if (!box || !editing || editing.id !== p.id) return;
+    if (r.error) { box.textContent = 'Couldn’t load the history. ' + r.error; return; }
+    const by = n => n ? ' · ' + esc(n) : '';
+    const rows = (r.log || []).map(x => {
+      const n = Number(x.delta), after = x.quantityAfter != null ? ` → ${x.quantityAfter} on the shelf` : '';
+      const what = x.kind === 'restock' ? `<b class="tone-ok">+${n}</b> added${by(x.addedBy)}` : x.kind === 'added' ? `New product with <b>${n}</b>${by(x.addedBy)}` : `Count changed by <b>${n > 0 ? '+' + n : '−' + Math.abs(n)}</b>${by(x.addedBy)}`;
+      const cost = x.costPrice != null && x.kind === 'restock' ? ` · ${money(x.costPrice)} each` : '';
+      return `<li><span>${what}<small>${esc(whenLabel(x.createdAt))}${after}${cost}</small></span></li>`;
+    });
+    const hasAdded = (r.log || []).some(x => x.kind === 'added');
+    const origin = r.product || {};
+    if (!hasAdded && origin.createdAt) rows.push(`<li><span>Added to the app${by(origin.addedBy)}<small>${esc(whenLabel(origin.createdAt))} · count not recorded before the history started</small></span></li>`);
+    box.className = '';
+    box.innerHTML = rows.length ? `<ul class="hist-list">${rows.join('')}</ul>` : '<p class="muted small m0">No history yet. It starts with the next + Add or count change.</p>';
   }
 
   // ---------- events ----------
@@ -1248,6 +1340,8 @@
     if (d.paywith) { noteNow(); sell.pay = d.paywith; return drawSell(); }
     if (d.who) { noteNow(); sell.who = d.who; return drawSell(); }
     if (d.add) { restock.cost = $('#restock-cost').value; restock.add = Math.max(1, restock.add + Number(d.add)); return drawRestock(); }
+    if (d.restockby) { restock.cost = $('#restock-cost').value; restock.by = restock.by === d.restockby ? '' : d.restockby; return drawRestock(); }
+    if (d.stockdir) { S.ui.stockDir = S.ui.stockDir === 'desc' ? 'asc' : 'desc'; return fillOwnerStock(); }
     if (d.addset) { restock.cost = $('#restock-cost').value; restock.add = Number(d.addset); return drawRestock(); }
     if (d.rmstaff) {
       const i = Number(d.rmstaff), n = staffNames()[i];
@@ -1347,6 +1441,10 @@
   }
 
   document.addEventListener('change', e => {
+    if (e.target.dataset && e.target.dataset.range) {
+      if (e.target.dataset.range === 'from') S.ui.rangeFrom = e.target.value; else S.ui.rangeTo = e.target.value;
+      return renderView();
+    }
     if (e.target.id === 'low-at') { settings().lowAt = Number(e.target.value); saveSettings().then(ok => ok && toast(live() ? 'Saved' : 'Saved on this device')); }
     if (e.target.dataset && e.target.dataset.ptname != null) {
       const t = payTypes()[Number(e.target.dataset.ptname)], v = e.target.value.trim().slice(0, 30);

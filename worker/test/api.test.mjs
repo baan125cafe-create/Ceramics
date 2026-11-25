@@ -13,16 +13,22 @@ fs.rmSync(state, { recursive: true, force: true });
 
 // Test PINs for this throwaway database only.
 const scramble = pin => { const s = crypto.randomBytes(8).toString('hex'); return s + ':' + crypto.createHash('sha256').update(s + pin).digest('hex'); };
-const vars = path.join(root, '.wrangler', 'test.vars');
-fs.mkdirSync(path.dirname(vars), { recursive: true });
-fs.writeFileSync(vars, ['BAAN_OWNER_PIN_HASH=' + scramble('246810'), 'BAAN_STAFF_PIN_HASH=' + scramble('135791'), 'CHUD_OWNER_PIN_HASH=' + scramble('864200'), 'CHUD_STAFF_PIN_HASH=' + scramble('975310')].join('\n'));
+// Passed with --var so they win over a local .dev.vars (wrangler dev reads .dev.vars first and
+// then ignores --env-file, so the test PINs wouldn't match on a computer that has one).
+fs.mkdirSync(path.join(root, '.wrangler'), { recursive: true });
+const testVars = { BAAN_OWNER_PIN_HASH: scramble('246810'), BAAN_STAFF_PIN_HASH: scramble('135791'), CHUD_OWNER_PIN_HASH: scramble('864200'), CHUD_STAFF_PIN_HASH: scramble('975310'), PIN_CONTACT: '', RESEND_API_KEY: '', REPORT_TO: '' };
+const varArgs = Object.entries(testVars).flatMap(([k, v]) => ['--var', k + ':' + v]);
 
 const wr = (...a) => execFileSync('npx', ['wrangler', ...a], { cwd: root, stdio: 'pipe' });
-// Start from the schema as it was before "not for sale", then run the migration, like the live database.
+// Start from the schema as it was before "not for sale" and the inventory history, then run
+// the migrations in order, like the live database.
 const oldSchema = path.join(root, '.wrangler', 'test-schema-old.sql');
-fs.writeFileSync(oldSchema, fs.readFileSync(path.join(root, 'schema.sql'), 'utf8').split('\n').filter(l => !/^\s*notForSale\b/.test(l)).join('\n'));
+const full = fs.readFileSync(path.join(root, 'schema.sql'), 'utf8');
+const noHistory = full.replace(/-- Inventory history[\s\S]*?CREATE INDEX IF NOT EXISTS stock_log_by_product[^\n]*\n/, '');
+fs.writeFileSync(oldSchema, noHistory.split('\n').filter(l => !/^\s*notForSale\b/.test(l)).join('\n'));
 wr('d1', 'execute', 'shop-db', '--local', '--persist-to', state, '--file', oldSchema);
 wr('d1', 'execute', 'shop-db', '--local', '--persist-to', state, '--file', 'migrations/0001_not_for_sale.sql');
+wr('d1', 'execute', 'shop-db', '--local', '--persist-to', state, '--file', 'migrations/0002_stock_log.sql');
 const seed = path.join(state, 'seed.sql');
 fs.writeFileSync(seed, `
 INSERT INTO products (shop,id,name,size,costPrice,sellPrice,quantity,imageUrl,addedBy,createdAt) VALUES
@@ -36,7 +42,7 @@ INSERT INTO sales (shop,id,productId,productName,quantity,sellPrice,total,paymen
 `);
 wr('d1', 'execute', 'shop-db', '--local', '--persist-to', state, '--file', seed);
 
-const dev = spawn('npx', ['wrangler', 'dev', '--port', String(PORT), '--persist-to', state, '--env-file', vars, '--test-scheduled'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+const dev = spawn('npx', ['wrangler', 'dev', '--port', String(PORT), '--persist-to', state, ...varArgs, '--test-scheduled'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
 let log = ''; dev.stdout.on('data', d => { log += d; }); dev.stderr.on('data', d => { log += d; });
 // Stop wrangler and the local runtime it started (the whole process group).
 const stop = code => {
@@ -71,7 +77,7 @@ try {
   const oa = await C('baan', { action: 'getAll', token: owner.token });
   ok(oa.products.length === 3 && oa.products.every(p => p.notForSale === 0) && oa.products.find(p => p.id === 'PRD-1').costPrice === 160 && oa.sales.length === 1 && oa.sales[0].paymentMethod === 'credit', 'owner sees everything, old labels kept');
   ok(JSON.stringify(oa.settings.payments.map(p => p.id)) === '["cash","card","qr"]', 'default payment types');
-  for (const a of ['addStock', 'updateProduct', 'archiveProduct', 'saveSettings', 'signOutAll', 'previewTestData', 'clearTestData'])
+  for (const a of ['addStock', 'updateProduct', 'archiveProduct', 'saveSettings', 'signOutAll', 'previewTestData', 'clearTestData', 'stockLog'])
     ok((await C('baan', { action: a, token: staff.token, id: 'PRD-1', productId: 'PRD-1', add: 1 })).code === 'forbidden', 'staff cannot ' + a);
 
   const s1 = await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 2, paymentMethod: 'qr', soldBy: 'Lin', total: 1, sellPrice: 1, price: 1 });
@@ -83,7 +89,21 @@ try {
   ok(race.filter(r => r.success).length === 1, 'simultaneous sales cannot oversell ' + JSON.stringify(race.map(r => r.error || 'ok')));
   ok(/test product/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-1', quantity: 1, paymentMethod: 'cash', note: '[TEST] x' })).error), 'test sale on a real product refused');
 
-  ok((await C('baan', { action: 'addStock', token: owner.token, productId: 'PRD-1', add: 6, costPrice: 170 })).quantity === 10, 'restock adds');
+  ok((await C('baan', { action: 'addStock', token: owner.token, productId: 'PRD-1', add: 6, costPrice: 170, by: 'Lin' })).quantity === 10, 'restock adds');
+
+  // Inventory history: restock (with who), count corrections, and "last stocked" for sorting.
+  await C('baan', { action: 'addStock', token: owner.token, productId: 'PRD-1', add: 2 });
+  await C('baan', { action: 'updateProduct', token: owner.token, id: 'PRD-1', quantity: 11 });
+  const h = await C('baan', { action: 'stockLog', token: owner.token, productId: 'PRD-1' });
+  ok(h.success && h.log.length === 3, 'history has three entries ' + JSON.stringify(h.log));
+  ok(h.log[2].kind === 'restock' && h.log[2].delta === 6 && h.log[2].addedBy === 'Lin' && h.log[2].quantityAfter === 10 && h.log[2].costPrice === 170, 'restock logged with who, count after and cost');
+  ok(h.log[1].kind === 'restock' && h.log[1].addedBy === 'Owner' && h.log[1].quantityAfter === 12, 'restock without a name is saved as Owner');
+  ok(h.log[0].kind === 'corrected' && h.log[0].delta === -1 && h.log[0].quantityAfter === 11, 'count correction logged');
+  ok(h.product.addedBy === 'Milk' && h.product.createdAt === '2026-06-12T03:00:00Z', 'history includes when and by whom the product was added');
+  const og = await C('baan', { action: 'getAll', token: owner.token });
+  ok(og.products.find(p => p.id === 'PRD-1').lastStockedAt === h.log[1].createdAt && og.products.find(p => p.id === 'PRD-2').lastStockedAt === '2026-06-12T03:00:00Z', 'last stocked: latest restock, else when added');
+  ok((await C('baan', { action: 'getAll', token: staff.token })).products.every(p => !('lastStockedAt' in p)), 'staff get no inventory history');
+  await C('baan', { action: 'updateProduct', token: owner.token, id: 'PRD-1', quantity: 10 });
 
   // A product with no price: the seller types it in; it isn't saved on the product.
   ok(/no price yet/.test((await C('baan', { action: 'addSale', token: staff.token, productId: 'PRD-0', quantity: 1, paymentMethod: 'cash' })).error), 'no-price item needs a price at the sale');
@@ -108,7 +128,9 @@ try {
   const g = (await C('baan', { action: 'getAll', token: staff.token })).products.find(p => p.id === 'PRD-0');
   ok(g.notForSale === 1 && g.costPrice === undefined, 'staff see the not-for-sale flag (still no cost)');
 
-  const tp = await C('baan', { action: 'addProduct', token: staff.token, name: 'Test mug', sellPrice: 100, quantity: 5, costPrice: 40 });
+  const tp = await C('baan', { action: 'addProduct', token: staff.token, name: 'Test mug', sellPrice: 100, quantity: 5, costPrice: 40, addedBy: 'Ploy' });
+  const th = await C('baan', { action: 'stockLog', token: owner.token, productId: tp.product.id });
+  ok(th.log.length === 1 && th.log[0].kind === 'added' && th.log[0].delta === 5 && th.log[0].addedBy === 'Ploy', 'new product logged with its starting count');
   ok(tp.success && tp.product.costPrice === 0, 'staff add ignores cost');
   await C('baan', { action: 'addSale', token: staff.token, productId: tp.product.id, quantity: 1, paymentMethod: 'card' });
   await C('baan', { action: 'addProduct', token: staff.token, name: 'bowl [TEST]', sellPrice: 50, quantity: 1 });
