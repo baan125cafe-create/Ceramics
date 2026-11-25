@@ -480,7 +480,7 @@
           ${sideLinks}
           <div class="side-foot">
             <button type="button" class="side-link" data-act="refresh">${I.refresh}Refresh data</button>
-            <span class="updated" style="padding:0 12px 4px 44px">${esc(updatedLabel())}</span>
+            <span class="updated side-updated">${esc(updatedLabel())}</span>
             <button type="button" class="side-link" data-act="signout">${I.out}Sign out</button>
           </div>
         </aside>
@@ -566,7 +566,7 @@
       const dots = Array.from({ length: L }, (_, i) => `<span class="${i < S.pin.length ? 'on' : ''}"></span>`).join('');
       const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'].map(k =>
         `<button type="button" class="${k === 'C' || k === '⌫' ? 'ghost' : ''}" data-key="${k}" aria-label="${k === '⌫' ? 'Delete' : (k === 'C' ? 'Clear' : k)}">${k === 'C' ? 'Clear' : k}</button>`).join('');
-      body = `<div style="color:var(--brand-dark-muted);font-size:14px">Enter your PIN</div>
+      body = `<div class="pin-prompt">Enter your PIN</div>
           <div class="pin-dots" role="img" aria-label="${S.pin.length} of ${L} digits entered">${dots}</div>
           <div class="pin-err" role="alert">${esc(S.pinErr)}</div>
           <div class="keypad">${keys}</div>
@@ -653,14 +653,14 @@
       </div>
       <div class="dash">
         <section class="hero" aria-label="Revenue">
-          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-            <div style="display:flex;flex-direction:column;gap:4px"><span class="eyebrow">Revenue · ${esc(st.R.label.toLowerCase())}</span><span class="big">${money(st.revenue)}</span></div>
+          <div class="hero-top">
+            <div class="hero-figure"><span class="eyebrow">Revenue · ${esc(st.R.label.toLowerCase())}</span><span class="big">${money(st.revenue)}</span></div>
             ${delta}
           </div>
           <div class="vs">${st.prevRevenue > 0 ? `vs ${money(st.prevRevenue)} ${esc(st.R.prevLabel)}` : '&nbsp;'}</div>
           <div class="chart" role="img" aria-label="Revenue by ${S.ui.period === '12m' || (S.ui.period === 'custom' && st.R.days > 62) ? 'month' : (S.ui.period === 'today' || (S.ui.period === 'custom' && st.R.days === 1) ? 'hour' : 'day')}, highest ${money(peak)}">
-            <div class="yaxis"><span style="top:0">${moneyShort(max)}</span><span style="top:50%">${moneyShort(max / 2)}</span><span style="top:100%">฿0</span></div>
-            <div class="plot"><div class="grid-line" style="top:0"></div><div class="grid-line" style="top:50%"></div>${line}</div>
+            <div class="yaxis"><span class="at-top">${moneyShort(max)}</span><span class="at-mid">${moneyShort(max / 2)}</span><span class="at-bottom">฿0</span></div>
+            <div class="plot"><div class="grid-line at-top"></div><div class="grid-line at-mid"></div>${line}</div>
           </div>
           <div class="xaxis"><span>${esc(st.buckets[0].label)}</span><span>${esc(st.buckets[mid].label)}</span><span>${esc(st.buckets[st.buckets.length - 1].label)}</span></div>
         </section>
@@ -705,7 +705,7 @@
 
         <section class="card w4">
           <h2>By staff</h2>
-          ${st.staff.length ? st.staff.map(s => `<div class="staff-row"><span style="display:flex;align-items:center;min-width:0"><span class="avatar">${esc(s.name[0])}</span>${esc(s.name)}</span><span class="muted">${s.n} sales · <b class="text-ink">${money(s.rev)}</b></span></div>`).join('') : '<p class="muted">No sales in this period yet.</p>'}
+          ${st.staff.length ? st.staff.map(s => `<div class="staff-row"><span class="staff-name"><span class="avatar">${esc(s.name[0])}</span>${esc(s.name)}</span><span class="muted">${s.n} sales · <b class="text-ink">${money(s.rev)}</b></span></div>`).join('') : '<p class="muted">No sales in this period yet.</p>'}
         </section>
       </div>`;
   }
@@ -803,7 +803,7 @@
     const nIn = prods.filter(p => p.quantity > 0).length;
     return `
       <div class="page-head"><div><h1>Inventory</h1><div class="muted small">Tap an item to sell it</div></div></div>
-      <div class="seg" role="tablist" aria-label="Inventory" style="max-width:420px">
+      <div class="seg w-420" role="tablist" aria-label="Inventory">
         <button type="button" role="tab" data-stafftab="in" aria-pressed="${S.ui.staffTab === 'in'}" aria-selected="${S.ui.staffTab === 'in'}">In stock · ${nIn}</button>
         <button type="button" role="tab" data-stafftab="out" aria-pressed="${S.ui.staffTab === 'out'}" aria-selected="${S.ui.staffTab === 'out'}">Sold out · ${prods.length - nIn}</button>
       </div>
@@ -858,9 +858,9 @@
   function viewAdd() {
     return `
       <div class="page-head"><div><h1>Add product</h1><div class="muted small">New item for ${esc(SHOPS[S.shop].name)}</div></div></div>
-      <form class="card" id="add-form" style="max-width:620px" novalidate>
+      <form class="card form-card" id="add-form" novalidate>
         <div class="pick">
-          <div class="thumb" id="add-preview" style="width:84px;height:84px;background:var(--surface-2);color:var(--muted)">${I[SHOPS[S.shop].icon]}</div>
+          <div class="thumb lg empty" id="add-preview">${I[SHOPS[S.shop].icon]}</div>
           <label class="btn" for="add-photo">Choose photo</label>
           <input id="add-photo" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" class="sr-only">
         </div>
@@ -907,7 +907,7 @@
         <div><h1>Sales</h1><div class="muted small" id="sales-sum"></div></div>
         <button type="button" class="btn" data-act="export">Download CSV</button>
       </div>
-      <div class="seg" role="group" aria-label="Time period" style="max-width:520px">${periods.map(([k, t]) => `<button type="button" data-salesperiod="${k}" aria-pressed="${S.ui.salesPeriod === k}">${t}</button>`).join('')}</div>
+      <div class="seg w-520" role="group" aria-label="Time period">${periods.map(([k, t]) => `<button type="button" data-salesperiod="${k}" aria-pressed="${S.ui.salesPeriod === k}">${t}</button>`).join('')}</div>
       <div class="toolbar">
         <label class="search">${I.search}<span class="sr-only">Search sales</span><input id="sales-q" type="search" placeholder="Product, staff or note" value="${esc(S.ui.salesQ)}" data-input="salesQ"></label>
         <div class="chips" role="group" aria-label="Payment">${chips.map(([k, t]) => `<button type="button" class="chip" data-pay="${k}" aria-pressed="${S.ui.salesPay === k}">${esc(t)}</button>`).join('')}</div>
@@ -971,7 +971,7 @@
           <h2>Data check</h2>
           <p class="muted small m0">How the ${plural(chk.nSales, 'sale')} and ${plural(chk.nProducts, 'product')} ${live() ? 'in the shop data' : 'in this sample'} line up with the payment types. Nothing here changes data.</p>
           <p class="muted small m0">${live() ? `${Backends.live.local ? 'Local test copy on this computer' : 'Stored on Cloudflare'} · <span class="break-all">${esc(Backends.live.api)}</span>` : 'Sample data in this browser only'}</p>
-          <div class="table-wrap" style="background:var(--surface-2)"><table>
+          <div class="table-wrap inset"><table>
             <thead><tr><th>Saved as</th><th>Shown as</th><th class="num">Sales</th><th class="num">Total</th></tr></thead>
             <tbody>${chk.pays.map(x => `<tr><td>${esc(x.raw)}</td><td><span class="pill pay-${x.info.kind}">${esc(x.info.kind === 'other' ? 'Other (' + x.raw + ')' : x.info.label)}</span></td><td class="num">${x.n.toLocaleString('en-US')}</td><td class="num">${money(x.total)}</td></tr>`).join('') || '<tr><td colspan="4" class="muted">No sales yet.</td></tr>'}</tbody>
           </table></div>
@@ -1064,7 +1064,7 @@
     return null;
   }
   function closeSheet() { const r = $('#sheet-root'); if (r) r.innerHTML = ''; }
-  const sheetHead = (title, sub, p) => `<div class="grab" aria-hidden="true"></div><div class="sheet-head">${p ? thumb(p) : ''}<div style="flex:1 1 auto;min-width:0"><h2>${esc(title)}</h2>${sub ? `<div class="muted small">${sub}</div>` : ''}</div><button type="button" class="icon-btn" data-act="close" aria-label="Close">${I.close}</button></div>`;
+  const sheetHead = (title, sub, p) => `<div class="grab" aria-hidden="true"></div><div class="sheet-head">${p ? thumb(p) : ''}<div class="sheet-title"><h2>${esc(title)}</h2>${sub ? `<div class="muted small">${sub}</div>` : ''}</div><button type="button" class="icon-btn" data-act="close" aria-label="Close">${I.close}</button></div>`;
   const previewNote = () => readOnly() ? `<p class="preview-note">${esc(READ_ONLY)}</p>` : '';
 
   // ---------- confirm step for anything destructive ----------
@@ -1120,7 +1120,7 @@
       </div>
       ${noPrice ? `<label class="field" for="sell-price">Price per piece (฿)<input id="sell-price" type="number" min="1" inputmode="decimal" value="${esc(sell.price)}" placeholder="This item has no price yet" required><span class="hint">Used for this sale only. The owner sets the product’s price.</span></label>` : ''}
       <div class="panel"><div class="sum-row items-center"><span class="fw-600">Quantity</span>
-        <div class="stepper gap-14"><button type="button" data-qty="-1" aria-label="One fewer" style="width:44px;height:44px">−</button><output style="font-size:30px;min-width:40px" aria-live="polite">${sell.qty}</output><button type="button" class="plus" data-qty="1" aria-label="One more" style="width:44px;height:44px" ${!p || sell.qty >= max ? 'disabled' : ''}>+</button></div></div></div>
+        <div class="stepper compact"><button type="button" data-qty="-1" aria-label="One fewer">−</button><output aria-live="polite">${sell.qty}</output><button type="button" class="plus" data-qty="1" aria-label="One more" ${!p || sell.qty >= max ? 'disabled' : ''}>+</button></div></div></div>
       <div class="field">Paid by<div class="seg" role="group" aria-label="Payment">${activePays().map(x => `<button type="button" data-paywith="${esc(x.id)}" aria-pressed="${sell.pay === x.id}">${esc(x.label)}</button>`).join('')}</div></div>
       <div class="field">Sold by<div class="chips" role="group" aria-label="Staff">${staffNames().map(n => `<button type="button" class="chip" data-who="${esc(n)}" aria-pressed="${sell.who === n}">${esc(n)}</button>`).join('') || '<span class="muted small">Add staff names in Settings.</span>'}</div></div>
       <label class="field" for="sell-note">Note (optional)<textarea id="sell-note" rows="2" maxlength="300" placeholder="Discount, gift wrap, customer request">${esc(sell.note)}</textarea></label>
@@ -1209,7 +1209,7 @@
     editing = { id };
     openSheet(`
       ${sheetHead('Edit product', esc(label(p)), p)}
-      <form id="edit-form" style="display:flex;flex-direction:column;gap:12px" novalidate>
+      <form id="edit-form" class="stack" novalidate>
         <label class="field" for="edit-name">Product name<input id="edit-name" name="name" value="${esc(p.name)}" required></label>
         <label class="field" for="edit-size">Size<input id="edit-size" name="size" value="${esc(p.size)}" placeholder="e.g. ${esc(SHOPS[S.shop].sizeHint || '300 ml')}"></label>
         <div class="grid-2">

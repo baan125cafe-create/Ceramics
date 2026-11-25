@@ -1,5 +1,5 @@
-/* Design tokens for the shop app: every colour, font, radius and shadow lives here.
-   styles.css only uses these variables. Light is the default; dark applies when the device
+/* Design tokens for the shop app: every colour, font, size, radius and shadow lives here.
+   styles.css only uses these variables (scripts/check.mjs enforces it). Light is the default; dark applies when the device
    is dark (Appearance: Automatic) or when Appearance is set to Dark. */
 :root {
   --bg: #F6F0E6; --surface: #FFFFFF; --surface-2: #F8F3EC; --line: #E6DACB;
@@ -13,6 +13,21 @@
   --font-display: 'DM Serif Display', Georgia, 'Times New Roman', serif;
   --font-body: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --r-lg: 18px; --r-md: 14px; --r-sm: 10px;
+  /* ---- Component tokens: every control and card is built from these, so they all match ---- */
+  /* Type scale */
+  --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-base: 15px; --fs-input: 16px; /* 16px stops iPhones zooming into fields */
+  /* Controls: text boxes, search bars, dropdown buttons, date boxes, square icon buttons */
+  --control-h: 48px; --control-h-sm: 44px; --control-pad-x: 14px; --control-radius: var(--r-md);
+  --control-bg: var(--surface); --control-ink: var(--ink); --control-line: var(--line); --control-placeholder: var(--muted);
+  --control-focus: var(--accent); --focus-ring: 0 0 0 3px var(--accent-soft);
+  /* Buttons and chips */
+  --btn-h: 44px; --btn-h-lg: 54px; --btn-radius: var(--r-sm); --chip-h: 38px; --pill-radius: 999px;
+  --icon-btn: 44px; --icon-btn-wide: 52px;
+  /* Cards: sections, product rows, sell tiles, KPI boxes, panels */
+  --card-bg: var(--surface); --card-radius: var(--r-lg); --card-radius-sm: var(--r-md); --card-pad: 16px; --item-pad: 12px;
+  /* Dropdown lists and pop-overs */
+  --pop-bg: var(--surface); --pop-line: var(--line); --pop-radius: var(--r-md); --pop-shadow: var(--shadow-pop);
+  --option-h: 56px; --option-hover: var(--surface-2); --option-selected: var(--accent-soft);
   /* Header, sidebar and bottom bar. In dark mode a lighter brown than the cards so they stand apart. */
   --chrome: #EDE1CF; --chrome-line: #DBC9B2; --chrome-on: #E2CCB4;
   /* Shadows */

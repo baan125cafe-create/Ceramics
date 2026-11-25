@@ -11,6 +11,7 @@
     "import": "node scripts/import-csv.mjs",
     "set-pin": "node scripts/set-pin.mjs",
     "test": "node test/api.test.mjs",
+    "check": "node ../scripts/check.mjs",
     "deploy": "wrangler deploy",
     "copy-photos": "node scripts/copy-photos.mjs"
   },
