@@ -31,7 +31,10 @@ On the sign-in screen, pick a shop, then a data source:
 - **Not for sale (owner only):** choose **Status → Not for sale** when adding or editing a product to keep a piece in inventory without selling it. A price is optional. When it's ready, **Ready to sell** on its Inventory row asks for the price (if it has none) and puts it on sale. Staff see it marked "Not for sale" and can't sell it, and it's left out of the dashboard's inventory money and in-stock counts (it has its own filter in Inventory).
 - **Items with no price:** if a product's price is 0 (some older ones from the sheets), whoever sells it has to type the price per piece. That price is used for that sale only; the owner sets the product's own price.
 - **Sales:** the server works out the price and total, saves the cost price on each new sale, and refuses to sell more than is on the shelf (even from two devices at once).
-- **Adding inventory:** "+ Add" adds to the count. **Remove** hides a product; its row stays, so old sales keep their cost.
+- **Adding inventory:** "+ Add" adds to the count, with an optional "Added by" name. **Remove** hides a product; its row stays, so old sales keep their cost.
+- **Inventory history (owner):** tapping a product shows every + Add (how many, by whom, when, count after), the starting count of new products, and count changes made in Edit product. History starts from the 0002 migration; older products show when and by whom they were added.
+- **Inventory sort (owner):** next to **Show**, **Sort** by name, last stocked, last sold or count, with the arrow button to reverse. Search only looks within what Show lets through.
+- **Dashboard dates:** besides Today / 7 days / 30 days / 12 months, the calendar button picks any From–To range. It's compared with the same number of days just before it.
 
 ## Payment types
 

@@ -36,7 +36,7 @@ const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 const ACTIONS = {
   getVersion: null, login: null,
   getAll: 'staff', addSale: 'staff', addProduct: 'staff', uploadImage: 'staff',
-  addStock: 'owner', updateProduct: 'owner', archiveProduct: 'owner',
+  addStock: 'owner', updateProduct: 'owner', archiveProduct: 'owner', stockLog: 'owner',
   saveSettings: 'owner', signOutAll: 'owner', sendReport: 'owner', previewTestData: 'owner', clearTestData: 'owner'
 };
 
@@ -121,6 +121,7 @@ async function run(env, shop, action, d, role, origin) {
     case 'sendReport': return sendReportNow(env, shop, d);
     case 'previewTestData': return previewTestData(env, shop);
     case 'clearTestData': return clearTestData(env, shop, d);
+    case 'stockLog': return stockLog(env, shop, d);
   }
   fail('Unknown action: ' + action);
 }
@@ -213,7 +214,34 @@ async function getAll(env, shop, role) {
   const sales = s.results.map(r => { const o = Object.assign({}, r); delete o.shop; if (o.costPrice == null) o.costPrice = ''; return o; });
   // Who to email for a PIN change: a Cloudflare secret, so no personal address is in the public repo. Owner only.
   const contact = role === 'owner' ? String(env.PIN_CONTACT || '').trim() : '';
+  // When pieces were last added (new product or + Add), for "Recently stocked" in Inventory. Owner only.
+  if (role === 'owner') {
+    const last = {};
+    try {
+      const l = await env.DB.prepare("SELECT productId, MAX(createdAt) AS at FROM stock_log WHERE shop = ? AND kind IN ('added', 'restock') GROUP BY productId").bind(shop).all();
+      l.results.forEach(r => { last[r.productId] = r.at; });
+    } catch (e) { /* history table not created yet (migration 0002): fall back to when the product was added */ }
+    products.forEach(o => { o.lastStockedAt = last[o.id] || o.createdAt || ''; });
+  }
   return { version: VERSION, role, products, sales, settings, contact };
+}
+
+// One inventory-history row (see migrations/0002_stock_log.sql). quantityAfter is read in the same batch.
+const logStock = (env, shop, productId, kind, delta, addedBy, costPrice) => env.DB.prepare(
+  `INSERT INTO stock_log (shop, id, productId, kind, delta, quantityAfter, costPrice, addedBy, createdAt)
+   VALUES (?, ?, ?, ?, ?, (SELECT quantity FROM products WHERE shop = ? AND id = ?), ?, ?, ?)`
+).bind(shop, 'STK-' + Date.now() + '-' + randomHex(3), productId, kind, delta, shop, productId, costPrice == null ? null : costPrice, str(addedBy, 40), new Date().toISOString());
+
+// Inventory history for one product, newest first (owner).
+async function stockLog(env, shop, d) {
+  const id = String(d.productId || '');
+  const p = await getProduct(env, shop, id);
+  if (!p) fail('That product no longer exists.');
+  let rows = [];
+  try {
+    rows = (await env.DB.prepare('SELECT kind, delta, quantityAfter, costPrice, addedBy, createdAt FROM stock_log WHERE shop = ? AND productId = ? ORDER BY createdAt DESC LIMIT 100').bind(shop, id).all()).results;
+  } catch (e) { /* history table not created yet */ }
+  return { success: true, log: rows, product: { createdAt: p.createdAt || '', addedBy: p.addedBy || '' } };
 }
 
 const getProduct = (env, shop, id) => env.DB.prepare('SELECT * FROM products WHERE shop = ? AND id = ?').bind(shop, String(id || '')).first();
@@ -276,8 +304,12 @@ async function addStock(env, shop, d) {
   if (!(n >= 1)) fail('Add at least 1 piece.');
   let cost = null;
   if (d.costPrice !== '' && d.costPrice != null) { cost = Number(d.costPrice); if (!(cost >= 0)) fail('Cost price must be 0 or more.'); cost = money(cost); }
-  const r = await env.DB.prepare('UPDATE products SET quantity = quantity + ?, costPrice = COALESCE(?, costPrice) WHERE shop = ? AND id = ? RETURNING quantity').bind(n, cost, shop, p.id).first();
-  return { success: true, quantity: r.quantity };
+  // Count and history change together. "by" is who added the pieces (optional; the owner if not given).
+  const [r] = await env.DB.batch([
+    env.DB.prepare('UPDATE products SET quantity = quantity + ?, costPrice = COALESCE(?, costPrice) WHERE shop = ? AND id = ? RETURNING quantity').bind(n, cost, shop, p.id),
+    logStock(env, shop, p.id, 'restock', n, str(d.by, 40) || 'Owner', cost)
+  ]);
+  return { success: true, quantity: r.results[0].quantity };
 }
 
 // Staff add photo, name, quantity and sell price. Only the owner sets cost.
@@ -294,8 +326,11 @@ async function addProduct(env, shop, d, role) {
   const p = { id: 'PRD-' + Date.now(), name, size: str(d.size, 40), costPrice: money(cost), sellPrice: money(sell), quantity: qty, imageUrl: str(d.imageUrl, 500), addedBy: str(d.addedBy, 40), createdAt: new Date().toISOString(), notForSale: nfs };
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      await env.DB.prepare('INSERT INTO products (shop, id, name, size, costPrice, sellPrice, quantity, imageUrl, addedBy, createdAt, notForSale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(shop, p.id, p.name, p.size, p.costPrice, p.sellPrice, p.quantity, p.imageUrl, p.addedBy, p.createdAt, p.notForSale).run();
+      await env.DB.batch([
+        env.DB.prepare('INSERT INTO products (shop, id, name, size, costPrice, sellPrice, quantity, imageUrl, addedBy, createdAt, notForSale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .bind(shop, p.id, p.name, p.size, p.costPrice, p.sellPrice, p.quantity, p.imageUrl, p.addedBy, p.createdAt, p.notForSale),
+        logStock(env, shop, p.id, 'added', p.quantity, p.addedBy, p.costPrice > 0 ? p.costPrice : null)
+      ]);
       return { success: true, product: p };
     } catch (e) {
       if (!/UNIQUE/i.test(String(e.message))) throw e;
@@ -319,7 +354,12 @@ async function updateProduct(env, shop, d) {
   if (d.quantity !== undefined) { const q = int(d.quantity); if (!(q >= 0)) fail('Quantity must be 0 or more.'); f.quantity = q; }
   if (d.imageUrl) f.imageUrl = str(d.imageUrl, 500);
   const keys = Object.keys(f); // fixed list above, never taken from the request
-  if (keys.length) await env.DB.prepare(`UPDATE products SET ${keys.map(k => k + ' = ?').join(', ')} WHERE shop = ? AND id = ?`).bind(...keys.map(k => f[k]), shop, String(d.id)).run();
+  if (keys.length) {
+    const ops = [env.DB.prepare(`UPDATE products SET ${keys.map(k => k + ' = ?').join(', ')} WHERE shop = ? AND id = ?`).bind(...keys.map(k => f[k]), shop, String(d.id))];
+    // A changed count (stock-take) goes in the history too.
+    if (f.quantity !== undefined && f.quantity !== Number(cur.quantity)) ops.push(logStock(env, shop, cur.id, 'corrected', f.quantity - Number(cur.quantity), 'Owner', null));
+    await env.DB.batch(ops);
+  }
   return { success: true };
 }
 
@@ -407,7 +447,8 @@ async function clearTestData(env, shop, d) {
   const ss = t.sales.filter(x => want.sales.has(x.id)).map(x => x.id);
   const ops = [
     ...ss.map(id => env.DB.prepare('DELETE FROM sales WHERE shop = ? AND id = ?').bind(shop, id)),
-    ...ps.map(id => env.DB.prepare('DELETE FROM products WHERE shop = ? AND id = ?').bind(shop, id))
+    ...ps.map(id => env.DB.prepare('DELETE FROM products WHERE shop = ? AND id = ?').bind(shop, id)),
+    ...ps.map(id => env.DB.prepare('DELETE FROM stock_log WHERE shop = ? AND productId = ?').bind(shop, id))
   ];
   if (ops.length) await env.DB.batch(ops);
   return { success: true, removed: { products: ps.length, sales: ss.length } };
